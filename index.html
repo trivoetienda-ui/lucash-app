@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LuCash $ - Calculadora de Remesas</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>LuCash $</h1>
+            <p class="subtitle">Calculadora de Remesas</p>
+        </header>
+
+        <div class="toggle-container" id="directionToggle">
+            <button class="toggle-btn active" data-direction="COP_VES">COP → VES</button>
+            <button class="toggle-btn" data-direction="VES_COP">VES → COP</button>
+        </div>
+
+        <div class="calculator-form">
+            <div class="input-group">
+                <label id="buyLabel">Precio Compra (COP)</label>
+                <input type="number" id="inputBuy" placeholder="0.00" step="any">
+            </div>
+
+            <div class="input-group">
+                <label id="sellLabel">Precio Venta (VES)</label>
+                <input type="number" id="inputSell" placeholder="0.00" step="any">
+            </div>
+
+            <div class="input-group">
+                <label>Ganancia Deseada (%)</label>
+                <input type="number" id="inputProfit" placeholder="10" value="10" step="0.1">
+            </div>
+
+            <div class="result-container">
+                <label>Tasa LuCash $</label>
+                <input type="text" id="resultTasa" class="readonly" value="0.00" readonly>
+            </div>
+            
+            <div id="errorMessage" class="error-message">Por favor, ingrese valores válidos.</div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW registrado', reg))
+                    .catch(err => console.log('Error SW', err));
+            });
+        }
+    </script>
+</body>
+</html>
