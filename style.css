@@ -146,23 +146,178 @@ input.readonly {
 
 /* Animations */
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .container {
     animation: fadeIn 0.6s ease-out;
 }
 
-/* PWA Splash optimization */
-@media (max-width: 480px) {
-    .container {
-        padding: 1.5rem;
-        border-radius: 0;
-        height: 100vh;
-        max-width: none;
-    }
-    body {
-        padding: 0;
-    }
+
+/* Navigation */
+.nav-btn {
+    padding: 10px 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 0.9rem;
+}
+
+.nav-btn.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+    border-color: var(--primary);
+}
+
+.action-btn {
+    width: 100%;
+    padding: 16px;
+    margin-top: 1rem;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-weight: 700;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: transform 0.2s;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.action-btn:active {
+    transform: scale(0.98);
+}
+
+/* Image Capture Container - Fixed 1080x1920 logic */
+.capture-container {
+    position: fixed;
+    top: 0;
+    left: -9999px;
+    /* Hide off-screen */
+    width: 1080px;
+    min-height: 1920px;
+    height: auto;
+    background: var(--bg-dark);
+    color: white;
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: 70px;
+    /* Increased padding for visual margin */
+    box-sizing: border-box;
+    align-items: center;
+    background-image: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.2) 0%, #0f172a 60%);
+    z-index: 9999;
+}
+
+.capture-header {
+    text-align: center;
+    margin-bottom: 60px;
+}
+
+.capture-logo {
+    font-size: 5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.capture-title {
+    font-size: 2rem;
+    color: var(--text-muted);
+    letter-spacing: 5px;
+    margin-top: 10px;
+    text-transform: uppercase;
+}
+
+.tables-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 60px;
+    width: 100%;
+    flex: 1;
+}
+
+.rate-column {
+    background: rgba(255, 255, 255, 0.03);
+    border: 3px solid rgba(16, 185, 129, 0.3);
+    border-radius: 40px;
+    padding: 40px;
+}
+
+.column-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 20px;
+}
+
+.column-header h3 {
+    font-size: 2rem;
+    color: var(--text-light);
+}
+
+.rate-display {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--secondary);
+}
+
+.rate-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 1.8rem;
+}
+
+.rate-table th {
+    text-align: left;
+    color: var(--text-muted);
+    padding: 15px;
+    font-weight: 500;
+}
+
+.rate-table td {
+    padding: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.rate-table td:last-child {
+    text-align: right;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.rate-note {
+    margin-top: 30px;
+    background: rgba(251, 191, 36, 0.15);
+    color: var(--secondary);
+    padding: 20px;
+    border-radius: 20px;
+    text-align: center;
+    font-size: 1.8rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+
+.capture-footer {
+    margin-top: auto;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    opacity: 0.5;
 }

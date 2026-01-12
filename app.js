@@ -1,4 +1,9 @@
+// Global functions for HTML access
+let showSection;
+let generateImage;
+
 document.addEventListener('DOMContentLoaded', () => {
+    // --- CALCULATOR LOGIC ---
     const directionBtns = document.querySelectorAll('.toggle-btn');
     const inputBuy = document.getElementById('inputBuy');
     const inputSell = document.getElementById('inputSell');
@@ -25,8 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sell = parseFloat(inputSell.value);
         const profitPct = parseFloat(inputProfit.value);
 
-        // Reset error
-        errorMessage.style.display = 'none';
+        if (errorMessage) errorMessage.style.display = 'none';
 
         if (isNaN(buy) || isNaN(sell) || isNaN(profitPct)) {
             resultTasa.value = '0.00';
@@ -42,23 +46,22 @@ document.addEventListener('DOMContentLoaded', () => {
         let tasa = 0;
 
         if (currentDirection === 'COP_VES') {
-            // COP → VES: (precio_compra_COP * (1 + ganancia)) / precio_venta_VES
             tasa = (buy * (1 + ganancia)) / sell;
         } else {
-            // VES → COP: (precio_venta_COP / precio_compra_VES) * (1 - ganancia)
             tasa = (sell / buy) * (1 - ganancia);
         }
 
         if (tasa < 0) {
             tasa = 0;
-            errorMessage.textContent = 'Resultado negativo no permitido';
-            errorMessage.style.display = 'block';
+            if (errorMessage) {
+                errorMessage.textContent = 'Resultado negativo no permitido';
+                errorMessage.style.display = 'block';
+            }
         }
 
         resultTasa.value = (Math.floor(tasa * 100) / 100).toFixed(2);
     };
 
-    // Event Listeners
     directionBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             directionBtns.forEach(b => b.classList.remove('active'));
@@ -70,9 +73,117 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     [inputBuy, inputSell, inputProfit].forEach(input => {
-        input.addEventListener('input', calculate);
+        if (input) input.addEventListener('input', calculate);
     });
 
-    // Initial calculation
     calculate();
+
+    // --- NAVIGATION LOGIC ---
+    const calcSection = document.getElementById('calculatorSection');
+    const genSection = document.getElementById('generatorSection');
+    const navBtns = document.querySelectorAll('.nav-btn');
+
+    showSection = (sectionName) => {
+        navBtns.forEach(btn => btn.classList.remove('active'));
+        if (sectionName === 'calculator') {
+            calcSection.style.display = 'block';
+            genSection.style.display = 'none';
+            navBtns[0].classList.add('active');
+        } else {
+            calcSection.style.display = 'none';
+            genSection.style.display = 'block';
+            navBtns[1].classList.add('active');
+        }
+    };
+
+    // --- GENERATOR LOGIC ---
+    const formatCurrency = (val, currency) => {
+        return new Intl.NumberFormat('es-CO', {
+            style: 'currency',
+            currency: currency,
+            maximumFractionDigits: 0
+        }).format(val);
+    };
+
+    const formatNumber = (val) => {
+        return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+    };
+
+    generateImage = () => {
+        const rateCopVes = parseFloat(document.getElementById('genRateCopVes').value);
+        const rateVesCop = parseFloat(document.getElementById('genRateVesCop').value);
+
+        if (!rateCopVes || !rateVesCop) {
+            alert("Por favor ingresa ambas tasas base");
+            return;
+        }
+
+        // Fill Data
+        document.getElementById('displayRateCopVes').textContent = rateCopVes.toFixed(2);
+        document.getElementById('displayRateVesCop').textContent = rateVesCop.toFixed(2);
+        document.getElementById('noteRateCopVes').textContent = (rateCopVes - 1).toFixed(2);
+        document.getElementById('noteRateVesCop').textContent = (rateVesCop + 1).toFixed(2);
+
+        // Generate Tables
+        const tbodyCopVes = document.querySelector('#tableCopVes tbody');
+        const tbodyVesCop = document.querySelector('#tableVesCop tbody');
+        tbodyCopVes.innerHTML = '';
+        tbodyVesCop.innerHTML = '';
+
+        // COP -> VES Steps
+        const stepsCop = [25000, 40000, 50000, 100000, 200000, 500000, 1000000, 2000000];
+        stepsCop.forEach(amount => {
+            let activeRate = rateCopVes;
+            if (amount >= 1000000) activeRate = rateCopVes - 1;
+
+            const result = amount / activeRate;
+
+            const row = `<tr>
+                <td>${formatCurrency(amount, 'COP')}</td>
+                <td>${formatNumber(result)}</td>
+            </tr>`;
+            tbodyCopVes.innerHTML += row;
+        });
+
+        // VES -> COP Steps
+        const stepsVes = [300, 400, 500, 1000, 2000, 5000, 10000];
+        stepsVes.forEach(amount => {
+            let activeRate = rateVesCop;
+            if (amount >= 5000) activeRate = rateVesCop + 1;
+
+            const result = amount * activeRate;
+
+            const row = `<tr>
+                <td>${formatNumber(amount)}</td>
+                <td>${formatCurrency(result, 'COP')}</td>
+            </tr>`;
+            tbodyVesCop.innerHTML += row;
+        });
+
+        // Capture
+        const container = document.getElementById('captureContainer');
+
+        // Ensure images are loaded manually if needed, 
+        // but try html2canvas with allowTaint first.
+
+        setTimeout(() => {
+            html2canvas(container, {
+                scale: 1,
+                useCORS: true,
+                allowTaint: true, // Allow local images
+                logging: false,
+                backgroundColor: '#0f172a',
+                height: container.scrollHeight,
+                windowHeight: container.scrollHeight
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `LuCash_Remesas_${new Date().getTime()}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            }).catch(err => {
+                console.error(err);
+                alert("Error al generar imagen");
+            });
+        }, 500); // Increased timeout to 500ms
+    };
 });
