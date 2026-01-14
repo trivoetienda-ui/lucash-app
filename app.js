@@ -237,7 +237,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('txDate').valueAsDate = new Date();
         const sel = document.getElementById('txColab');
         sel.innerHTML = '<option value="">Ninguno</option>';
-        (await storage.getColabs()).forEach(c => sel.innerHTML += `<option value="${c.id}">${c.name}</option>`);
+        const colabs = await storage.getColabs();
+        colabs.forEach(c => sel.innerHTML += `<option value="${c.id}">${c.name}</option>`);
         document.getElementById('txModal').style.display = 'flex';
     };
 
@@ -246,13 +247,22 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const btn = txForm.querySelector('button[type="submit"]');
             btn.disabled = true;
+            btn.textContent = "Procesando...";
             try {
                 const colabId = document.getElementById('txColab').value || null;
+
+                // Get all screenshot evidence as base64
                 let evidence = [];
-                const files = document.getElementById('txEvidence').files;
-                if (files.length > 0) {
+                const fileInput = document.getElementById('txEvidence');
+                if (fileInput && fileInput.files.length > 0) {
+                    const files = Array.from(fileInput.files);
                     for (let f of files) {
-                        const b64 = await new Promise(r => { const rd = new FileReader(); rd.onload = e => r(e.target.result); rd.readAsDataURL(f); });
+                        const b64 = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = ev => resolve(ev.target.result);
+                            reader.onerror = err => reject(err);
+                            reader.readAsDataURL(f);
+                        });
                         evidence.push(b64);
                     }
                 }
@@ -289,15 +299,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     ganancia_usuario: results.ganancia_usuario,
                     ganancia_colaborador: results.ganancia_colaborador,
                     liquidated: false,
-                    evidence: evidence
+                    evidence: evidence // Successfully captured array
                 };
 
                 await storage.saveTransaction(finalDbTx);
                 window.closeModal('txModal');
             } catch (err) {
+                console.error("Save error:", err);
                 alert("Error al guardar: " + err.message);
             } finally {
                 btn.disabled = false;
+                btn.textContent = "Guardar";
             }
         };
     }
@@ -320,6 +332,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         txs.filter(tx => (!df || tx.date >= df) && (!dt || tx.date <= dt) && (!curF || tx.colab_id === curF) && (!tf || tx.type === tf)).forEach(tx => {
             const c = colabs.find(cl => cl.id === tx.colab_id);
+            const hasEvidence = tx.evidence && Array.isArray(tx.evidence) && tx.evidence.length > 0;
+
             tbody.innerHTML += `<tr>
                 <td><input type="checkbox" class="tx-checkbox" data-id="${tx.id}"></td>
                 <td>${new Date(tx.date).toLocaleDateString()}</td>
@@ -339,10 +353,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="text-primary" style="font-weight:700">${Number(tx.ganancia_usuario).toFixed(2)}</td>
                 <td>${Number(tx.ganancia_colaborador).toFixed(2)}</td>
                 <td><span class="status-tag ${tx.liquidated ? 'status-paid' : 'status-pending'}">${tx.liquidated ? 'Liq.' : 'Pte.'}</span></td>
-                <td style="display:flex; gap:5px;">
-                    ${(tx.evidence && tx.evidence.length > 0) ? `<button class="nav-btn small" onclick="viewEvidence('${tx.id}')">📷</button>` : ''}
-                    <button class="nav-btn small" onclick="toggleLiquidated('${tx.id}', ${tx.liquidated})">${tx.liquidated ? '↩️' : '✅'}</button>
-                    <button class="nav-btn small" onclick="deleteTransaction('${tx.id}')">🗑️</button>
+                <td>
+                    <div style="display:flex; gap:5px; align-items:center;">
+                        ${hasEvidence ? `<button class="nav-btn small" onclick="viewEvidence('${tx.id}')" title="Ver Evidencia">📷</button>` : ''}
+                        <button class="nav-btn small" onclick="toggleLiquidated('${tx.id}', ${tx.liquidated})">${tx.liquidated ? '↩️' : '✅'}</button>
+                        <button class="nav-btn small" onclick="deleteTransaction('${tx.id}')">🗑️</button>
+                    </div>
                 </td>
             </tr>`;
         });
@@ -356,10 +372,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.viewEvidence = async (id) => {
-        const tx = (await storage.getTransactions()).find(t => t.id === id);
-        if (tx && tx.evidence) {
-            document.getElementById('evidenceDisplay').innerHTML = tx.evidence.map(img => `<img src="${img}" style="max-width:100%; margin-bottom:10px;">`).join('');
-            document.getElementById('viewerModal').style.display = 'flex';
+        const txs = await storage.getTransactions();
+        const tx = txs.find(t => t.id === id);
+        if (tx && tx.evidence && Array.isArray(tx.evidence)) {
+            const display = document.getElementById('evidenceDisplay');
+            if (display) {
+                display.innerHTML = tx.evidence.map(img => `<img src="${img}" style="max-width:100%; border-radius:10px; margin-bottom:15px; box-shadow:0 4px 15px rgba(0,0,0,0.3);">`).join('');
+                const modal = document.getElementById('viewerModal');
+                if (modal) modal.style.display = 'flex';
+            }
         }
     };
 
