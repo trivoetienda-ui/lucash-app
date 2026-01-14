@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lucash-v8';
+const CACHE_NAME = 'lucash-v9';
 const ASSETS = [
     './index.html',
     './style.css',
