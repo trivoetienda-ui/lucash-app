@@ -217,7 +217,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderChart = (txs) => {
-        const ctx = document.getElementById('profitChart').getContext('2d');
+        const canvas = document.getElementById('profitChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
         if (profitChart) profitChart.destroy();
         const grouped = txs.reduce((acc, tx) => { acc[tx.date] = (acc[tx.date] || 0) + tx.ganancia_neta; return acc; }, {});
         const sorted = Object.keys(grouped).sort();
@@ -258,6 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     colab_id: document.getElementById('txColab').value || null,
                     liquidated: false
                 };
+
                 const files = document.getElementById('txEvidence').files;
                 if (files.length > 0) {
                     raw.evidence = [];
@@ -266,10 +269,39 @@ document.addEventListener('DOMContentLoaded', () => {
                         raw.evidence.push(b64);
                     }
                 }
-                const calc = FinancialLogic.calculateTransaction({ tipo_cambio: raw.type, tasa_cambio: raw.rate, monto_recibo: raw.amount_rec, usdt_comprados: raw.usdt_bought, usdt_vendidos: raw.usdt_sold, binance_fee_buy: raw.binance_fee_buy, binance_fee_sell: raw.binance_fee_sell, ganancia_compartida: !!raw.colab_id });
-                await storage.saveTransaction({ ...raw, ...calc });
+
+                // Calculate using logic engine
+                const calcResult = FinancialLogic.calculateTransaction({
+                    tipo_cambio: raw.type,
+                    tasa_cambio: raw.rate,
+                    monto_recibo: raw.amount_rec,
+                    usdt_comprados: raw.usdt_bought,
+                    usdt_vendidos: raw.usdt_sold,
+                    binance_fee_buy: raw.binance_fee_buy,
+                    binance_fee_sell: raw.binance_fee_sell,
+                    ganancia_compartida: !!raw.colab_id
+                });
+
+                // Map only database-valid fields
+                const dbTx = {
+                    ...raw,
+                    monto_entrego: calcResult.monto_entrego,
+                    precio_compra_usdt: calcResult.precio_compra_usdt,
+                    comision_banco: calcResult.comision_banco,
+                    ganancia_bruta: calcResult.ganancia_bruta,
+                    ganancia_neta: calcResult.ganancia_neta,
+                    ganancia_usuario: calcResult.ganancia_usuario,
+                    ganancia_colaborador: calcResult.ganancia_colaborador
+                };
+
+                await storage.saveTransaction(dbTx);
                 window.closeModal('txModal');
-            } catch (err) { alert("Error al guardar: " + err.message); } finally { btn.disabled = false; }
+            } catch (err) {
+                console.error("Save error:", err);
+                alert("Error al guardar: " + err.message);
+            } finally {
+                btn.disabled = false;
+            }
         };
     }
 
@@ -297,12 +329,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${tx.client || ''}</td>
                 <td>${c ? c.name : 'N/A'}</td>
                 <td>${tx.type === 'COP_VES' ? '🇨🇴→🇻🇪' : '🇻🇪→🇨🇴'}</td>
-                <td>${tx.rate.toFixed(2)}</td>
+                <td>${Number(tx.rate).toFixed(2)}</td>
                 <td>${new Intl.NumberFormat('es-CO').format(tx.amount_rec)}</td>
                 <td>${new Intl.NumberFormat('es-CO').format(tx.monto_entrego)}</td>
-                <td>${tx.usdt_bought.toFixed(2)}</td>
-                <td>${tx.precio_compra_usdt.toFixed(2)}</td>
-                <td class="text-primary" style="font-weight:700">${tx.ganancia_usuario.toFixed(2)}</td>
+                <td>${Number(tx.usdt_bought).toFixed(2)}</td>
+                <td>${Number(tx.precio_compra_usdt).toFixed(2)}</td>
+                <td class="text-primary" style="font-weight:700">${Number(tx.ganancia_usuario).toFixed(2)}</td>
                 <td><span class="status-tag ${tx.liquidated ? 'status-paid' : 'status-pending'}">${tx.liquidated ? 'Liq.' : 'Pte.'}</span></td>
                 <td style="display:flex; gap:5px;">
                     ${(tx.evidence && tx.evidence.length > 0) ? `<button class="nav-btn small" onclick="viewEvidence('${tx.id}')">📷</button>` : ''}

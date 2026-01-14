@@ -1,12 +1,12 @@
-const CACHE_NAME = 'lucash-v7';
+const CACHE_NAME = 'lucash-v8';
 const ASSETS = [
     './index.html',
     './style.css',
     './app.js',
     './financial-logic.js',
     './manifest.json',
-    './icons/icon-192.png',
-    './icons/icon-512.png'
+    './icon-192.png',
+    './icon-512.png'
 ];
 
 // Install: Cache essential assets with graceful failure
