@@ -23,7 +23,8 @@ body {
     background-color: var(--bg-dark);
     color: var(--text-light);
     min-height: 100vh;
-    padding: 0.5rem;
+    padding: 0;
+    /* Marginalizado a 0 para maximizar espacio */
     background-image: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.15) 0%, transparent 50%);
 }
 
@@ -73,7 +74,8 @@ body {
 
 @media (max-width: 768px) {
     .container {
-        padding: 0.5rem;
+        padding: 10px 8px;
+        /* Padding ultra-reducido */
         border-radius: 0;
         border: none;
         background: transparent;
@@ -90,7 +92,7 @@ body {
 
 @media (max-width: 768px) {
     .main-header {
-        margin-bottom: 1rem;
+        margin-bottom: 0.75rem;
     }
 }
 
@@ -309,9 +311,9 @@ h1 {
 /* Dashboard Styles */
 .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 1rem;
 }
 
 .stat-card {
@@ -366,8 +368,8 @@ h1 {
     background: var(--glass);
     border-radius: 20px;
     border: 1px solid var(--border);
-    padding: 1rem;
-    margin-bottom: 1.5rem;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
 }
 
 .card h3 {
