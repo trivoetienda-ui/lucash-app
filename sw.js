@@ -1,23 +1,22 @@
-const CACHE_NAME = 'lucash-v5';
+const CACHE_NAME = 'lucash-v7';
 const ASSETS = [
-    './',
     './index.html',
     './style.css',
     './app.js',
     './financial-logic.js',
     './manifest.json',
     './icons/icon-192.png',
-    './icons/icon-512.png',
-    'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
-    'https://cdn.jsdelivr.net/npm/chart.js',
-    'https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js',
-    'https://unpkg.com/lucide@latest'
+    './icons/icon-512.png'
 ];
 
-// Install: Cache essential assets
+// Install: Cache essential assets with graceful failure
 self.addEventListener('install', event => {
     event.waitUntil(
-        caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
+        caches.open(CACHE_NAME).then(cache => {
+            return Promise.allSettled(ASSETS.map(url => {
+                return cache.add(url).catch(err => console.error('Failed to cache:', url, err));
+            }));
+        })
     );
     self.skipWaiting();
 });
@@ -31,19 +30,23 @@ self.addEventListener('activate', event => {
             );
         })
     );
+    self.clients.claim();
 });
 
-// Fetch: Stale-While-Revalidate Strategy
+// Fetch: Network-First with Cache Fallback (Safer for production)
 self.addEventListener('fetch', event => {
+    // Skip external requests (CDNs, Supabase) - Let browser handle them normally
+    if (!event.request.url.startsWith(self.location.origin)) return;
+
     event.respondWith(
-        caches.match(event.request).then(cachedResponse => {
-            const fetchPromise = fetch(event.request).then(networkResponse => {
+        fetch(event.request)
+            .then(response => {
+                const resClone = response.clone();
                 caches.open(CACHE_NAME).then(cache => {
-                    cache.put(event.request, networkResponse.clone());
+                    cache.put(event.request, resClone);
                 });
-                return networkResponse;
-            });
-            return cachedResponse || fetchPromise;
-        })
+                return response;
+            })
+            .catch(() => caches.match(event.request))
     );
 });
