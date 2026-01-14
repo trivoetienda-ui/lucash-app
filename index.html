@@ -4,84 +4,355 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LuCash $ - Calculadora de Remesas</title>
+    <title>LuCash $ - Gestión de Remesas</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#0f172a">
+    <meta name="theme-color" content="#10b981">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 
-<body>
+<body class="auth-hidden">
+    <!-- LOGIN OVERLAY -->
+    <div id="authOverlay" class="auth-overlay">
+        <div class="auth-card">
+            <div class="auth-header">
+                <img src="icons/icon-192.png" alt="LuCash Logo" class="auth-logo">
+                <h2>Bienvenido a LuCash $</h2>
+                <p id="authSubtitle">Inicia sesión para gestionar tus remesas</p>
+            </div>
+            <form id="authForm" class="auth-form">
+                <div class="input-group">
+                    <label>Correo Electrónico</label>
+                    <input type="email" id="authEmail" placeholder="tu@email.com" required>
+                </div>
+                <div class="input-group">
+                    <label style="display: flex; align-items: center; gap: 5px;">
+                        Contraseña
+                        <div class="info-icon" id="pwRequirements">
+                            <i data-lucide="info" style="width:14px; height:14px;"></i>
+                            <span class="tooltip">Min. 8 caracteres, Mayúscula, Minúscula, Número y Símbolo</span>
+                        </div>
+                    </label>
+                    <div class="password-wrapper">
+                        <input type="password" id="authPassword" placeholder="••••••••" required>
+                        <button type="button" class="toggle-password"
+                            onclick="togglePasswordVisibility('authPassword')">
+                            <i data-lucide="eye" class="eye-icon"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="input-group" id="confirmPasswordGroup" style="display: none;">
+                    <label>Confirmar Contraseña</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="authConfirmPassword" placeholder="••••••••">
+                        <button type="button" class="toggle-password"
+                            onclick="togglePasswordVisibility('authConfirmPassword')">
+                            <i data-lucide="eye" class="eye-icon"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" id="authSubmitBtn" class="action-btn">Entrar</button>
+            </form>
+            <div class="auth-footer">
+                <p id="toggleAuthText">¿No tienes cuenta? <a href="#" id="toggleAuthMode">Regístrate gratis</a></p>
+            </div>
+        </div>
+    </div>
     <div class="container">
         <header>
-            <h1>LuCash $</h1>
-            <p class="subtitle">Calculadora de Remesas</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <h1 style="margin:0">LuCash $</h1>
+                <button class="nav-btn small" onclick="logout()"
+                    style="background: var(--error); color: white; margin:0">Cerrar Sesión</button>
+            </div>
+            <p class="subtitle">Gestión Profesional de Remesas</p>
         </header>
 
-        <div class="nav-menu" style="display: flex; gap: 10px; justify-content: center; margin-bottom: 1.5rem;">
-            <button class="nav-btn active" onclick="showSection('calculator')">Calculadora</button>
-            <button class="nav-btn" onclick="showSection('generator')">📷 Generar Tabla</button>
-        </div>
+        <nav class="nav-menu" id="mainNav">
+            <button class="nav-btn active" onclick="showSection('dashboard')">🏠 Dashboard</button>
+            <button class="nav-btn" onclick="showSection('transactions')">💼 Op. Binance</button>
+            <button class="nav-btn" onclick="showSection('calculator')">🧮 Calc</button>
+            <button class="nav-btn" onclick="showSection('generator')">📷 Tabla</button>
+            <button class="nav-btn" onclick="showSection('collaborators')">👥 Colab</button>
+        </nav>
 
-        <section id="calculatorSection">
+        <!-- DASHBOARD SECTION -->
+        <section id="dashboardSection">
+            <div class="filters-bar" style="margin-bottom: 2rem;">
+                <div class="filter-group">
+                    <label>Desde (Dashboard):</label>
+                    <input type="date" id="dashDateFrom">
+                </div>
+                <div class="filter-group">
+                    <label>Hasta (Dashboard):</label>
+                    <input type="date" id="dashDateTo">
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="stat-card">
+                    <span class="stat-label">Ganancia Periodo</span>
+                    <span class="stat-value" id="statPeriodProfit">0.00 USDT</span>
+                </div>
+                <div class="stat-card highlight">
+                    <span class="stat-label">Mi Ganancia Mes</span>
+                    <span class="stat-value" id="statUserGainMonth">0.00 USDT</span>
+                </div>
+                <div class="stat-card urgent">
+                    <span class="stat-label">Total por Liquidar</span>
+                    <span class="stat-value" id="statTotalPending">0.00 USDT</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Volumen Total COP</span>
+                    <span class="stat-value" id="statVolCop">$ 0</span>
+                </div>
+            </div>
+
+            <div class="chart-container card">
+                <h3>Ganancia por Período</h3>
+                <canvas id="profitChart"></canvas>
+            </div>
+
+            <div class="card">
+                <h3>Resumen por Colaborador</h3>
+                <div class="table-container">
+                    <table id="colabSummaryTable">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Op.</th>
+                                <th>Pte. Liquidar</th>
+                                <th>Total Ganado</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TRANSACTIONS SECTION -->
+        <section id="transactionsSection" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Registro de Operaciones</h3>
+                    <button class="action-btn small" onclick="openTransactionModal()">+ Nueva</button>
+                </div>
+
+                <div class="filters-bar">
+                    <div class="filter-group">
+                        <label>Desde:</label>
+                        <input type="date" id="filterDateFrom">
+                    </div>
+                    <div class="filter-group">
+                        <label>Hasta:</label>
+                        <input type="date" id="filterDateTo">
+                    </div>
+                    <div class="filter-group">
+                        <label>Colaborador:</label>
+                        <select id="filterColab">
+                            <option value="">Todo</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Tipo:</label>
+                        <select id="filterType">
+                            <option value="">Todo</option>
+                            <option value="COP_VES">COP → VES</option>
+                            <option value="VES_COP">VES → COP</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="bulk-actions" style="margin-bottom: 1rem; display: flex; gap: 10px;">
+                    <button class="secondary-btn small" onclick="toggleSelectAll()">Seleccionar Todo</button>
+                    <button class="action-btn small" onclick="liquidateSelected()"
+                        style="background: var(--success); width: auto;">✅ Liquidar Seleccionados</button>
+                </div>
+
+                <div class="table-container">
+                    <table id="transactionsTable">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll()"></th>
+                                <th>Fecha</th>
+                                <th>Cliente</th>
+                                <th>Colab.</th>
+                                <th>Tipo</th>
+                                <th>Tasa</th>
+                                <th>Recibido</th>
+                                <th>Entregar</th>
+                                <th>USDT Comp.</th>
+                                <th>USDT Vend.</th>
+                                <th>P. Compra USDT</th>
+                                <th>C. Bin Buy</th>
+                                <th>C. Bin Sell</th>
+                                <th>Com. Banco</th>
+                                <th>G. Bruta</th>
+                                <th>Mi Ganancia</th>
+                                <th>G. Colab</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <button class="secondary-btn" onclick="exportToExcel()">📊 Exportar Excel</button>
+            </div>
+        </section>
+
+        <!-- CALCULATOR SECTION -->
+        <section id="calculatorSection" style="display: none;">
             <div class="toggle-container" id="directionToggle">
                 <button class="toggle-btn active" data-direction="COP_VES">COP → VES</button>
                 <button class="toggle-btn" data-direction="VES_COP">VES → COP</button>
             </div>
 
-            <div class="calculator-form">
+            <div class="calculator-form card">
                 <div class="input-group">
                     <label id="buyLabel">Precio Compra (COP)</label>
                     <input type="number" id="inputBuy" placeholder="0.00" step="any">
                 </div>
-
                 <div class="input-group">
                     <label id="sellLabel">Precio Venta (VES)</label>
                     <input type="number" id="inputSell" placeholder="0.00" step="any">
                 </div>
-
                 <div class="input-group">
                     <label>Ganancia Deseada (%)</label>
                     <input type="number" id="inputProfit" placeholder="10" value="10" step="0.1">
                 </div>
-
                 <div class="result-container">
                     <label>Tasa LuCash $</label>
                     <input type="text" id="resultTasa" class="readonly" value="0.00" readonly>
                 </div>
-
                 <div id="errorMessage" class="error-message">Por favor, ingrese valores válidos.</div>
             </div>
         </section>
 
-        <!-- New Generator Section -->
+        <!-- GENERATOR SECTION -->
         <section id="generatorSection" style="display: none;">
-            <div class="input-group">
-                <label>Tasa Base COP → VES</label>
-                <input type="number" id="genRateCopVes" placeholder="Ej: 8.80">
+            <div class="card">
+                <div class="input-group">
+                    <label>Tasa Base COP → VES</label>
+                    <input type="number" id="genRateCopVes" placeholder="Ej: 8.80">
+                </div>
+                <div class="input-group">
+                    <label>Tasa Base VES → COP</label>
+                    <input type="number" id="genRateVesCop" placeholder="Ej: 3.50">
+                </div>
+                <button class="action-btn" onclick="generateImage()">✨ Descargar Imagen</button>
             </div>
-            <div class="input-group">
-                <label>Tasa Base VES → COP</label>
-                <input type="number" id="genRateVesCop" placeholder="Ej: 3.50">
+        </section>
+
+        <!-- COLLABORATORS SECTION -->
+        <section id="collaboratorsSection" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Gestión de Colaboradores</h3>
+                    <button class="action-btn small" onclick="openColabModal()">+ Añadir</button>
+                </div>
+                <div class="table-container">
+                    <table id="colabTable">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Op. Totales</th>
+                                <th>Ganancia Acumulada</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
-            <button class="action-btn" onclick="generateImage()">✨ Descargar Imagen</button>
         </section>
     </div>
 
-    <!-- Hidden container for Image Generation (1080x1920 scaled down visually) -->
+    <!-- MODAL: TRANSACTION FORM -->
+    <div id="txModal" class="modal">
+        <div class="modal-content card">
+            <h3 id="txModalTitle">Nueva Transacción</h3>
+            <form id="txForm">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Fecha</label>
+                        <input type="date" id="txDate" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Cliente</label>
+                        <input type="text" id="txClient">
+                    </div>
+                    <div class="input-group">
+                        <label>Tipo</label>
+                        <select id="txType">
+                            <option value="COP_VES">COP → VES</option>
+                            <option value="VES_COP">VES → COP</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Tasa Cambio</label>
+                        <input type="number" id="txRate" step="any" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Monto Recibido</label>
+                        <input type="number" id="txAmountRec" step="any" required>
+                    </div>
+                    <div class="input-group">
+                        <label>USDT Comprados</label>
+                        <input type="number" id="txUsdtBought" step="any" required>
+                    </div>
+                    <div class="input-group">
+                        <label>USDT Vendidos</label>
+                        <input type="number" id="txUsdtSold" step="any" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Com. Binance Compra</label>
+                        <input type="number" id="txBinanceFeeBuy" step="any" value="0.10" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Com. Binance Venta</label>
+                        <input type="number" id="txBinanceFeeSell" step="any" value="0" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Colaborador</label>
+                        <select id="txColab">
+                            <option value="">Ninguno</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Evidencia (Screenshots)</label>
+                        <input type="file" id="txEvidence" accept="image/*" class="file-input" multiple>
+                    </div>
+
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="secondary-btn" onclick="closeModal('txModal')">Cancelar</button>
+                    <button type="submit" class="action-btn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Hidden container for Image Generation -->
     <div id="captureContainer" class="capture-container">
         <div class="capture-header">
             <div class="capture-logo">LuCash $</div>
             <div class="capture-title">TABLA DE REMESAS</div>
         </div>
-
         <div class="tables-wrapper">
-            <!-- COP to VES -->
             <div class="rate-column">
                 <div class="column-header">
                     <h3>🇨🇴 Colombia ⮕ Venezuela 🇻🇪</h3>
@@ -96,21 +367,8 @@
                     </thead>
                     <tbody></tbody>
                 </table>
-                <div class="rate-footer">
-                    <div class="rate-note">
-                        Después de $1.000.000<br>
-                        Tasa es: <span id="noteRateCopVes">0.00</span>
-                    </div>
-                    <div class="flags-display flags-cop-ves">
-                        <img src="data:image/png;base64,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"
-                            class="flag-img flag-big" crossOrigin="anonymous">
-                        <img src="data:image/png;base64,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"
-                            class="flag-img flag-small" crossOrigin="anonymous">
-                    </div>
-                </div>
+                <div class="rate-note">Después de $1.000.000<br>Tasa es: <span id="noteRateCopVes">0.00</span></div>
             </div>
-
-            <!-- VES to COP -->
             <div class="rate-column">
                 <div class="column-header">
                     <h3>🇻🇪 Venezuela ⮕ Colombia 🇨🇴</h3>
@@ -125,27 +383,23 @@
                     </thead>
                     <tbody></tbody>
                 </table>
-                <div class="rate-footer">
-                    <div class="rate-note">
-                        Después de 5.000 Bs<br>
-                        Tasa es: <span id="noteRateVesCop">0.00</span>
-                    </div>
-                    <div class="flags-display flags-ves-cop">
-                        <img src="data:image/png;base64,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"
-                            class="flag-img flag-big" crossOrigin="anonymous">
-                        <img src="data:image/png;base64,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"
-                            class="flag-img flag-small" crossOrigin="anonymous">
-                    </div>
-                </div>
+                <div class="rate-note">Después de 5.000 Bs<br>Tasa es: <span id="noteRateVesCop">0.00</span></div>
             </div>
         </div>
+        <div class="capture-footer">Generado por LuCash $ App</div>
+    </div>
 
-        <div class="capture-footer">
-            Generado por LuCash $ App
+    <!-- Evidence Viewer Modal -->
+    <div id="viewerModal" class="modal">
+        <div class="modal-content" style="max-width: 800px; text-align: center;">
+            <div id="evidenceDisplay"></div>
+            <div class="modal-footer" style="justify-content: center;">
+                <button type="button" class="secondary-btn" onclick="closeModal('viewerModal')">Cerrar</button>
+            </div>
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="financial-logic.js"></script>
     <script src="app.js"></script>
     <script>
         if ('serviceWorker' in navigator) {

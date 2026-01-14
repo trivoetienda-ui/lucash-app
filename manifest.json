@@ -1,11 +1,13 @@
 {
-  "name": "LuCash $",
+  "name": "LuCash $ - Gestión de Remesas",
   "short_name": "LuCash",
-  "description": "Calculadora de remesas COP/VES",
-  "start_url": "./index.html",
+  "description": "Tu centro financiero para el control de remesas y ganancias en tiempo real.",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "theme_color": "#10b981",
+  "orientation": "portrait",
+  "categories": ["finance", "productivity"],
   "icons": [
     {
       "src": "icons/icon-192.png",
@@ -16,7 +18,8 @@
     {
       "src": "icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
