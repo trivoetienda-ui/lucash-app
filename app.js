@@ -511,7 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const canvas = await html2canvas(container, {
                 useCORS: true,
-                scale: 2,
+                scale: 1,
                 backgroundColor: "#042421"
             });
 
