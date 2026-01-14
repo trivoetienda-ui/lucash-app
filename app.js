@@ -10,7 +10,7 @@ const SUPABASE_KEY = 'sb_publishable_p3OafMM93oZ2J21qP-gdrw_cPsvLLFC';
 // Initialize Supabase only if the library is available
 const _client = (typeof supabase !== 'undefined') ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
-// --- GLOBAL NAVIGATION & ACTIONS ---
+// --- GLOBAL NAVIGATION & ACTIONS (ROOT LEVEL FOR HTML ONCLICK) ---
 window.toggleMenu = () => {
     const menu = document.getElementById('sideMenu');
     const overlay = document.getElementById('menuOverlay');
@@ -25,13 +25,24 @@ window.handleNav = async (name) => {
 };
 
 window.logout = async () => {
-    if (_client) await _client.auth.signOut();
+    if (_client) {
+        await _client.auth.signOut();
+        localStorage.clear();
+        sessionStorage.clear();
+    }
     window.location.reload();
 };
 
 window.closeModal = (id) => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
+};
+
+window.toggleSelectAll = () => {
+    const master = document.getElementById('selectAllCheckbox');
+    if (!master) return;
+    const cbs = document.querySelectorAll('.tx-checkbox');
+    cbs.forEach(cb => cb.checked = master.checked);
 };
 
 // State variables
@@ -41,19 +52,13 @@ let updateUI = () => { };
 
 document.addEventListener('DOMContentLoaded', () => {
     if (!_client) {
-        console.error("Supabase not loaded. Check internet connection or CDN.");
-        alert("Error de conexión: No se pudo cargar el motor de datos.");
+        alert("Error de conexión: Verifica tu internet.");
         return;
     }
 
-    // Initialize Lucide Icons
     if (typeof lucide !== 'undefined') lucide.createIcons();
 
     // --- AUTHENTICATION LOGIC ---
-    const authOverlay = document.getElementById('authOverlay');
-    const authForm = document.getElementById('authForm');
-    let isSignUpMode = false;
-
     const updateAuthUI = (user) => {
         currentUser = user;
         if (user) {
@@ -66,13 +71,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    _client.auth.getSession().then(({ data: { session } }) => {
-        updateAuthUI(session?.user ?? null);
-    });
+    _client.auth.getSession().then(({ data: { session } }) => updateAuthUI(session?.user ?? null));
+    _client.auth.onAuthStateChange((_event, session) => updateAuthUI(session?.user ?? null));
 
-    _client.auth.onAuthStateChange((_event, session) => {
-        updateAuthUI(session?.user ?? null);
-    });
+    const authForm = document.getElementById('authForm');
+    let isSignUpMode = false;
 
     if (authForm) {
         authForm.onsubmit = async (e) => {
@@ -106,39 +109,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     const { error } = await _client.auth.signInWithPassword({ email, password });
                     if (error) throw error;
                 }
-            } catch (err) {
-                alert('Error: ' + err.message);
-            } finally {
+            } catch (err) { alert('Error: ' + err.message); } finally {
                 btn.disabled = false;
                 btn.textContent = isSignUpMode ? 'Registrarse' : 'Entrar';
             }
         };
     }
 
-    const toggleAuthModeBtn = document.getElementById('toggleAuthMode');
-    if (toggleAuthModeBtn) {
-        toggleAuthModeBtn.onclick = (e) => {
+    const toggleBtn = document.getElementById('toggleAuthMode');
+    if (toggleBtn) {
+        toggleBtn.onclick = (e) => {
             e.preventDefault();
             isSignUpMode = !isSignUpMode;
             document.getElementById('confirmPasswordGroup').style.display = isSignUpMode ? 'block' : 'none';
             document.getElementById('pwRequirements').style.visibility = isSignUpMode ? 'visible' : 'hidden';
-            document.getElementById('authSubtitle').textContent = isSignUpMode ? 'Crea una cuenta para empezar' : 'Inicia sesión para gestionar tus remesas';
+            document.getElementById('authSubtitle').textContent = isSignUpMode ? 'Crea una cuenta' : 'Inicia Sesión';
             document.getElementById('authSubmitBtn').textContent = isSignUpMode ? 'Registrarse' : 'Entrar';
-            document.getElementById('toggleAuthText').innerHTML = isSignUpMode ? '¿Ya tienes cuenta? <a href="#" id="swMode">Inicia Sesión</a>' : '¿No tienes cuenta? <a href="#" id="swMode">Regístrate gratis</a>';
-            document.getElementById('swMode').onclick = toggleAuthModeBtn.onclick;
+            document.getElementById('toggleAuthText').innerHTML = isSignUpMode ? '¿Ya tienes cuenta? <a href="#" id="swMode">Inicia Sesión</a>' : '¿No tienes cuenta? <a href="#" id="swMode">Regístrate</a>';
+            document.getElementById('swMode').onclick = toggleBtn.onclick;
         };
     }
 
     window.togglePasswordVisibility = (inputId) => {
         const input = document.getElementById(inputId);
         const icon = input.nextElementSibling.querySelector('i');
-        if (input.type === 'password') {
-            input.type = 'text';
-            icon.setAttribute('data-lucide', 'eye-off');
-        } else {
-            input.type = 'password';
-            icon.setAttribute('data-lucide', 'eye');
-        }
+        input.type = input.type === 'password' ? 'text' : 'password';
+        icon.setAttribute('data-lucide', input.type === 'password' ? 'eye' : 'eye-off');
         if (typeof lucide !== 'undefined') lucide.createIcons();
     };
 
@@ -150,20 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         saveTransaction: async (tx) => {
             const { error } = await _client.from('transactions').upsert({ ...tx, user_id: currentUser.id });
-            if (error) alert('Error: ' + error.message);
-            await updateUI();
-        },
-        deleteTransaction: async (id) => {
-            if (!confirm('¿Seguro?')) return;
-            await _client.from('transactions').delete().eq('id', id);
-            await updateUI();
-        },
-        toggleLiquidated: async (id, currentState) => {
-            await _client.from('transactions').update({ liquidated: !currentState }).eq('id', id);
-            await updateUI();
-        },
-        bulkLiquidate: async (ids) => {
-            await _client.from('transactions').update({ liquidated: true }).in('id', ids);
+            if (error) throw error;
             await updateUI();
         },
         getColabs: async () => {
@@ -175,11 +158,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (error) alert('Error: ' + error.message);
             await updateUI();
         },
-        deleteColab: async (id) => {
-            if (!confirm('¿Seguro?')) return;
-            await _client.from('collaborators').delete().eq('id', id);
-            await updateUI();
-        }
+        deleteTransaction: async (id) => { if (confirm('¿Seguro?')) { await _client.from('transactions').delete().eq('id', id); await updateUI(); } },
+        toggleLiquidated: async (id, s) => { await _client.from('transactions').update({ liquidated: !s }).eq('id', id); await updateUI(); },
+        bulkLiquidate: async (ids) => { await _client.from('transactions').update({ liquidated: true }).in('id', ids); await updateUI(); },
+        deleteColab: async (id) => { if (confirm('¿Seguro?')) { await _client.from('collaborators').delete().eq('id', id); await updateUI(); } }
     };
 
     // --- NAVIGATION ---
@@ -194,124 +176,100 @@ document.addEventListener('DOMContentLoaded', () => {
     window.showSection = async (name) => {
         Object.keys(sections).forEach(s => { if (sections[s]) sections[s].style.display = 'none'; });
         if (sections[name]) sections[name].style.display = 'block';
-
         document.querySelectorAll('.menu-item').forEach(btn => btn.classList.remove('active'));
         const activeBtn = Array.from(document.querySelectorAll('.menu-item')).find(b => b.getAttribute('onclick')?.includes(name));
         if (activeBtn) activeBtn.classList.add('active');
-
         if (name === 'dashboard') await renderDashboard();
         if (name === 'transactions') await renderTransactions();
         if (name === 'collaborators') await renderColabs();
     };
 
-    // --- DASHBOARD & CHARTS ---
+    // --- DASHBOARD ---
     let profitChart = null;
-
     const renderDashboard = async () => {
         if (!currentUser) return;
         const txs = await storage.getTransactions();
         const colabs = await storage.getColabs();
+        const df = document.getElementById('dashDateFrom').value;
+        const dt = document.getElementById('dashDateTo').value;
+        const filtered = txs.filter(tx => (!df || tx.date >= df) && (!dt || tx.date <= dt));
+        const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+        const monthly = txs.filter(tx => tx.date >= firstDay);
 
-        const dateFrom = document.getElementById('dashDateFrom').value;
-        const dateTo = document.getElementById('dashDateTo').value;
+        document.getElementById('statPeriodProfit').textContent = `${filtered.reduce((s, t) => s + t.ganancia_neta, 0).toFixed(2)} USDT`;
+        document.getElementById('statUserGainMonth').textContent = `${monthly.reduce((s, t) => s + t.ganancia_usuario, 0).toFixed(2)} USDT`;
+        document.getElementById('statTotalPending').textContent = `${txs.filter(t => !t.liquidated).reduce((s, t) => s + t.ganancia_colaborador, 0).toFixed(2)} USDT`;
 
-        const filteredTxs = txs.filter(tx => (!dateFrom || tx.date >= dateFrom) && (!dateTo || tx.date <= dateTo));
-        const now = new Date();
-        const firstDayMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-        const monthlyTxs = txs.filter(tx => tx.date >= firstDayMonth);
+        const vol = filtered.reduce((s, t) => s + (t.type === 'COP_VES' ? t.amount_rec : t.monto_entrego), 0);
+        document.getElementById('statVolCop').textContent = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(vol);
 
-        const stats = {
-            periodProfit: filteredTxs.reduce((sum, t) => sum + t.ganancia_neta, 0),
-            userGainMonth: monthlyTxs.reduce((sum, t) => sum + t.ganancia_usuario, 0),
-            totalPending: txs.filter(t => !t.liquidated).reduce((sum, t) => sum + t.ganancia_colaborador, 0),
-            volCop: filteredTxs.reduce((sum, t) => sum + (t.type === 'COP_VES' ? t.amount_rec : t.monto_entrego), 0)
-        };
-
-        document.getElementById('statPeriodProfit').textContent = `${stats.periodProfit.toFixed(2)} USDT`;
-        document.getElementById('statUserGainMonth').textContent = `${stats.userGainMonth.toFixed(2)} USDT`;
-        document.getElementById('statTotalPending').textContent = `${stats.totalPending.toFixed(2)} USDT`;
-        document.getElementById('statVolCop').textContent = formatCurrency(stats.volCop, 'COP');
-
-        renderColabSummary(txs, colabs);
-        renderChart(filteredTxs);
-    };
-
-    const renderColabSummary = (txs, colabs) => {
         const tbody = document.querySelector('#colabSummaryTable tbody');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-        colabs.forEach(c => {
-            const cTxs = txs.filter(t => t.colabId === c.id);
-            const pte = cTxs.filter(t => !t.liquidated).reduce((sum, t) => sum + t.ganancia_colaborador, 0);
-            const total = cTxs.reduce((sum, t) => sum + t.ganancia_colaborador, 0);
-            if (pte > 0 || total > 0) {
-                tbody.innerHTML += `<tr><td>${c.name}</td><td>${cTxs.length}</td><td style="color:var(--secondary); font-weight:700">${pte.toFixed(2)} USDT</td><td>${total.toFixed(2)} USDT</td></tr>`;
-            }
-        });
+        if (tbody) {
+            tbody.innerHTML = '';
+            colabs.forEach(c => {
+                const cTxs = txs.filter(t => t.colab_id === c.id);
+                const pte = cTxs.filter(t => !t.liquidated).reduce((s, t) => s + t.ganancia_colaborador, 0);
+                const tot = cTxs.reduce((s, t) => s + t.ganancia_colaborador, 0);
+                if (tot > 0) tbody.innerHTML += `<tr><td>${c.name}</td><td>${cTxs.length}</td><td style="color:var(--secondary); font-weight:700">${pte.toFixed(2)} USDT</td><td>${tot.toFixed(2)} USDT</td></tr>`;
+            });
+        }
+        renderChart(filtered);
     };
 
     const renderChart = (txs) => {
         const ctx = document.getElementById('profitChart').getContext('2d');
         if (profitChart) profitChart.destroy();
         const grouped = txs.reduce((acc, tx) => { acc[tx.date] = (acc[tx.date] || 0) + tx.ganancia_neta; return acc; }, {});
-        const sortedDates = Object.keys(grouped).sort();
-        const labels = sortedDates.map(d => new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }));
-        const data = sortedDates.map(d => grouped[d]);
-
+        const sorted = Object.keys(grouped).sort();
         profitChart = new Chart(ctx, {
             type: 'line',
-            data: { labels, datasets: [{ label: 'Ganancia Diaria (USDT)', data, borderColor: '#10b981', tension: 0.3, fill: true }] },
+            data: { labels: sorted.map(d => new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })), datasets: [{ label: 'Ganancia (USDT)', data: sorted.map(d => grouped[d]), borderColor: '#10b981', tension: 0.3, fill: true }] },
             options: { responsive: true, maintainAspectRatio: false }
         });
     };
 
     // --- TRANSACTIONS ---
     const txForm = document.getElementById('txForm');
-    window.openTransactionModal = async (id = null) => {
-        if (txForm) txForm.reset();
+    window.openTransactionModal = async () => {
+        txForm.reset();
         document.getElementById('txDate').valueAsDate = new Date();
-        const colabSelect = document.getElementById('txColab');
-        colabSelect.innerHTML = '<option value="">Ninguno</option>';
-        const colabs = await storage.getColabs();
-        colabs.forEach(c => colabSelect.innerHTML += `<option value="${c.id}">${c.name}</option>`);
-        document.getElementById('txBinanceFeeBuy').value = '0.10';
+        const sel = document.getElementById('txColab');
+        sel.innerHTML = '<option value="">Ninguno</option>';
+        (await storage.getColabs()).forEach(c => sel.innerHTML += `<option value="${c.id}">${c.name}</option>`);
         document.getElementById('txModal').style.display = 'flex';
     };
 
     if (txForm) {
         txForm.onsubmit = async (e) => {
             e.preventDefault();
-            const rawTx = {
-                date: document.getElementById('txDate').value,
-                client: document.getElementById('txClient').value,
-                type: document.getElementById('txType').value,
-                rate: parseFloat(document.getElementById('txRate').value),
-                amount_rec: parseFloat(document.getElementById('txAmountRec').value),
-                usdt_bought: parseFloat(document.getElementById('txUsdtBought').value),
-                usdt_sold: parseFloat(document.getElementById('txUsdtSold').value),
-                binance_fee_buy: parseFloat(document.getElementById('txBinanceFeeBuy').value) || 0,
-                binance_fee_sell: parseFloat(document.getElementById('txBinanceFeeSell').value) || 0,
-                colabId: document.getElementById('txColab').value,
-                liquidated: false
-            };
-            const evidenceFiles = document.getElementById('txEvidence').files;
-            if (evidenceFiles.length > 0) {
-                rawTx.evidence = [];
-                for (let file of evidenceFiles) {
-                    const reader = new FileReader();
-                    const b64 = await new Promise(r => { reader.onload = (e) => r(e.target.result); reader.readAsDataURL(file); });
-                    rawTx.evidence.push(b64);
+            const btn = txForm.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            try {
+                const raw = {
+                    date: document.getElementById('txDate').value,
+                    client: document.getElementById('txClient').value,
+                    type: document.getElementById('txType').value,
+                    rate: parseFloat(document.getElementById('txRate').value),
+                    amount_rec: parseFloat(document.getElementById('txAmountRec').value),
+                    usdt_bought: parseFloat(document.getElementById('txUsdtBought').value),
+                    usdt_sold: parseFloat(document.getElementById('txUsdtSold').value),
+                    binance_fee_buy: parseFloat(document.getElementById('txBinanceFeeBuy').value) || 0,
+                    binance_fee_sell: parseFloat(document.getElementById('txBinanceFeeSell').value) || 0,
+                    colab_id: document.getElementById('txColab').value || null,
+                    liquidated: false
+                };
+                const files = document.getElementById('txEvidence').files;
+                if (files.length > 0) {
+                    raw.evidence = [];
+                    for (let f of files) {
+                        const b64 = await new Promise(r => { const rd = new FileReader(); rd.onload = e => r(e.target.result); rd.readAsDataURL(f); });
+                        raw.evidence.push(b64);
+                    }
                 }
-            }
-            rawTx.shared = rawTx.colabId !== "";
-            const calculated = FinancialLogic.calculateTransaction({
-                tipo_cambio: rawTx.type, tasa_cambio: rawTx.rate, monto_recibo: rawTx.amount_rec,
-                usdt_comprados: rawTx.usdt_bought, usdt_vendidos: rawTx.usdt_sold,
-                binance_fee_buy: rawTx.binance_fee_buy, binance_fee_sell: rawTx.binance_fee_sell,
-                ganancia_compartida: rawTx.shared
-            });
-            await storage.saveTransaction({ ...rawTx, ...calculated });
-            window.closeModal('txModal');
+                const calc = FinancialLogic.calculateTransaction({ tipo_cambio: raw.type, tasa_cambio: raw.rate, monto_recibo: raw.amount_rec, usdt_comprados: raw.usdt_bought, usdt_vendidos: raw.usdt_sold, binance_fee_buy: raw.binance_fee_buy, binance_fee_sell: raw.binance_fee_sell, ganancia_compartida: !!raw.colab_id });
+                await storage.saveTransaction({ ...raw, ...calc });
+                window.closeModal('txModal');
+            } catch (err) { alert("Error al guardar: " + err.message); } finally { btn.disabled = false; }
         };
     }
 
@@ -319,116 +277,80 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentUser) return;
         const txs = await storage.getTransactions();
         const colabs = await storage.getColabs();
-        const tbody = document.querySelector('#transactionsTable tbody');
-        if (!tbody) return;
+        const tbody = document.querySelector('#transactionsTable tbody'); if (!tbody) return;
         tbody.innerHTML = '';
+        const fColab = document.getElementById('filterColab');
+        const curF = fColab.value;
+        fColab.innerHTML = '<option value="">Todo</option>';
+        colabs.forEach(c => fColab.innerHTML += `<option value="${c.id}">${c.name}</option>`);
+        fColab.value = curF;
 
-        const filterColab = document.getElementById('filterColab');
-        const currentFilterVal = filterColab.value;
-        filterColab.innerHTML = '<option value="">Todo</option>';
-        colabs.forEach(c => filterColab.innerHTML += `<option value="${c.id}">${c.name}</option>`);
-        filterColab.value = currentFilterVal;
+        const df = document.getElementById('filterDateFrom').value;
+        const dt = document.getElementById('filterDateTo').value;
+        const tf = document.getElementById('filterType').value;
 
-        const dateFrom = document.getElementById('filterDateFrom').value;
-        const dateTo = document.getElementById('filterDateTo').value;
-        const colabFilter = filterColab.value;
-        const typeFilter = document.getElementById('filterType').value;
-
-        const filtered = txs.filter(tx => {
-            return (!dateFrom || tx.date >= dateFrom) && (!dateTo || tx.date <= dateTo) && (!colabFilter || tx.colabId === colabFilter) && (!typeFilter || tx.type === typeFilter);
-        });
-
-        filtered.forEach(tx => {
-            const colab = colabs.find(c => c.id === tx.colabId);
-            tbody.innerHTML += `
-                <tr>
-                    <td><input type="checkbox" class="tx-checkbox" data-id="${tx.id}"></td>
-                    <td>${new Date(tx.date).toLocaleDateString()}</td>
-                    <td>${tx.client || ''}</td>
-                    <td>${colab ? colab.name : 'N/A'}</td>
-                    <td>${tx.type === 'COP_VES' ? '🇨🇴→🇻🇪' : '🇻🇪→🇨🇴'}</td>
-                    <td>${tx.rate.toFixed(2)}</td>
-                    <td>${formatNumber(tx.amount_rec)}</td>
-                    <td>${formatNumber(tx.monto_entrego)}</td>
-                    <td>${tx.usdt_bought.toFixed(2)}</td>
-                    <td>${tx.precio_compra_usdt.toFixed(2)}</td>
-                    <td class="text-primary" style="font-weight:700">${tx.ganancia_usuario.toFixed(2)}</td>
-                    <td><span class="status-tag ${tx.liquidated ? 'status-paid' : 'status-pending'}">${tx.liquidated ? 'Liq.' : 'Pte.'}</span></td>
-                    <td style="display:flex; gap:5px;">
-                        ${(tx.evidence && tx.evidence.length > 0) ? `<button class="nav-btn small" onclick="viewEvidence('${tx.id}')">📷</button>` : ''}
-                        <button class="nav-btn small" onclick="toggleLiquidated('${tx.id}', ${tx.liquidated})">${tx.liquidated ? '↩️' : '✅'}</button>
-                        <button class="nav-btn small" onclick="storage.deleteTransaction('${tx.id}')">🗑️</button>
-                    </td>
-                </tr>
-            `;
+        txs.filter(tx => (!df || tx.date >= df) && (!dt || tx.date <= dt) && (!curF || tx.colab_id === curF) && (!tf || tx.type === tf)).forEach(tx => {
+            const c = colabs.find(cl => cl.id === tx.colab_id);
+            tbody.innerHTML += `<tr>
+                <td><input type="checkbox" class="tx-checkbox" data-id="${tx.id}"></td>
+                <td>${new Date(tx.date).toLocaleDateString()}</td>
+                <td>${tx.client || ''}</td>
+                <td>${c ? c.name : 'N/A'}</td>
+                <td>${tx.type === 'COP_VES' ? '🇨🇴→🇻🇪' : '🇻🇪→🇨🇴'}</td>
+                <td>${tx.rate.toFixed(2)}</td>
+                <td>${new Intl.NumberFormat('es-CO').format(tx.amount_rec)}</td>
+                <td>${new Intl.NumberFormat('es-CO').format(tx.monto_entrego)}</td>
+                <td>${tx.usdt_bought.toFixed(2)}</td>
+                <td>${tx.precio_compra_usdt.toFixed(2)}</td>
+                <td class="text-primary" style="font-weight:700">${tx.ganancia_usuario.toFixed(2)}</td>
+                <td><span class="status-tag ${tx.liquidated ? 'status-paid' : 'status-pending'}">${tx.liquidated ? 'Liq.' : 'Pte.'}</span></td>
+                <td style="display:flex; gap:5px;">
+                    ${(tx.evidence && tx.evidence.length > 0) ? `<button class="nav-btn small" onclick="viewEvidence('${tx.id}')">📷</button>` : ''}
+                    <button class="nav-btn small" onclick="toggleLiquidated('${tx.id}', ${tx.liquidated})">${tx.liquidated ? '↩️' : '✅'}</button>
+                    <button class="nav-btn small" onclick="deleteTransaction('${tx.id}')">🗑️</button>
+                </td>
+            </tr>`;
         });
     };
 
-    window.toggleLiquidated = async (id, currentState) => await storage.toggleLiquidated(id, currentState);
+    window.toggleLiquidated = (id, s) => storage.toggleLiquidated(id, s);
+    window.deleteTransaction = (id) => storage.deleteTransaction(id);
     window.liquidateSelected = async () => {
         const ids = Array.from(document.querySelectorAll('.tx-checkbox:checked')).map(cb => cb.dataset.id);
-        if (ids.length > 0 && confirm("¿Liquidar seleccionados?")) await storage.bulkLiquidate(ids);
+        if (ids.length > 0 && confirm("¿Liquidar?")) await storage.bulkLiquidate(ids);
     };
 
     window.viewEvidence = async (id) => {
-        const txs = await storage.getTransactions();
-        const tx = txs.find(t => t.id === id);
+        const tx = (await storage.getTransactions()).find(t => t.id === id);
         if (tx && tx.evidence) {
-            const display = document.getElementById('evidenceDisplay');
-            display.innerHTML = tx.evidence.map(img => `<img src="${img}" style="max-width:100%; margin-bottom:10px;">`).join('');
+            document.getElementById('evidenceDisplay').innerHTML = tx.evidence.map(img => `<img src="${img}" style="max-width:100%; margin-bottom:10px;">`).join('');
             document.getElementById('viewerModal').style.display = 'flex';
         }
     };
 
-    window.openColabModal = async () => {
-        const name = prompt("Nombre:");
-        if (name) await storage.saveColab({ name });
-    };
-
+    window.openColabModal = async () => { const n = prompt("Nombre:"); if (n) await storage.saveColab({ name: n }); };
     const renderColabs = async () => {
         const colabs = await storage.getColabs();
         const txs = await storage.getTransactions();
-        const tbody = document.querySelector('#colobsTable tbody');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-        colabs.forEach(c => {
-            const cTxs = txs.filter(t => t.colabId === c.id);
-            tbody.innerHTML += `<tr><td>${c.name}</td><td>${cTxs.length}</td><td>${cTxs.reduce((sum, t) => sum + t.ganancia_colaborador, 0).toFixed(2)} USDT</td><td><button class="nav-btn small" onclick="storage.deleteColab('${c.id}')">🗑️</button></td></tr>`;
-        });
+        const tbody = document.querySelector('#colabTable tbody'); if (!tbody) return;
+        tbody.innerHTML = colabs.map(c => {
+            const cTxs = txs.filter(t => t.colab_id === c.id);
+            return `<tr><td>${c.name}</td><td>${cTxs.length}</td><td>${cTxs.reduce((s, t) => s + t.ganancia_colaborador, 0).toFixed(2)} USDT</td><td><button class="nav-btn small" onclick="deleteColab('${c.id}')">🗑️</button></td></tr>`;
+        }).join('');
     };
+    window.deleteColab = (id) => storage.deleteColab(id);
 
-    // --- HELPERS ---
-    const formatCurrency = (v, c) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: c, maximumFractionDigits: 0 }).format(v);
-    const formatNumber = (v) => new Intl.NumberFormat('es-CO', { minimumFractionDigits: 2 }).format(v);
+    // --- INIT ---
+    updateUI = async () => { await renderDashboard(); await renderTransactions(); await renderColabs(); };
+    window.exportToExcel = async () => { const txs = await storage.getTransactions(); const ws = XLSX.utils.json_to_sheet(txs); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Data"); XLSX.writeFile(wb, "LuCash_Export.xlsx"); };
 
-    updateUI = async () => {
-        await renderDashboard();
-        await renderTransactions();
-        await renderColabs();
-    };
-
-    window.exportToExcel = async () => {
-        const txs = await storage.getTransactions();
-        const ws = XLSX.utils.json_to_sheet(txs);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Data");
-        XLSX.writeFile(wb, "LuCash_Export.xlsx");
-    };
-
-    // Initialize
     if (document.getElementById('inputBuy')) {
         const calc = () => {
-            const buy = parseFloat(document.getElementById('inputBuy').value);
-            const sell = parseFloat(document.getElementById('inputSell').value);
-            const profit = parseFloat(document.getElementById('inputProfit').value) / 100;
-            if (buy && sell) document.getElementById('resultTasa').value = ((buy * (1 + profit)) / sell).toFixed(2);
+            const b = parseFloat(document.getElementById('inputBuy').value), s = parseFloat(document.getElementById('inputSell').value), p = parseFloat(document.getElementById('inputProfit').value) / 100;
+            if (b && s) document.getElementById('resultTasa').value = ((b * (1 + p)) / s).toFixed(2);
         };
         ['inputBuy', 'inputSell', 'inputProfit'].forEach(id => document.getElementById(id).oninput = calc);
     }
-
-    if (document.getElementById('dashDateFrom')) {
-        ['dashDateFrom', 'dashDateTo'].forEach(id => document.getElementById(id).onchange = renderDashboard);
-    }
-
+    ['dashDateFrom', 'dashDateTo'].forEach(id => document.getElementById(id).onchange = renderDashboard);
     window.showSection('dashboard');
 });
