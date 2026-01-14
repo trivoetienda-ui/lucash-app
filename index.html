@@ -82,7 +82,7 @@
             <button class="menu-item active" onclick="handleNav('dashboard')">🏠 Dashboard</button>
             <button class="menu-item" onclick="handleNav('transactions')">💼 Op. Binance</button>
             <button class="menu-item" onclick="handleNav('calculator')">🧮 Calculadora</button>
-            <button class="menu-item" onclick="handleNav('generator')">📷 Tablas Mensuales</button>
+            <button class="menu-item" onclick="handleNav('generator')">📷 Tasa del día</button>
             <button class="menu-item" onclick="handleNav('collaborators')">👥 Colaboradores</button>
         </nav>
         <div class="side-menu-footer">
@@ -361,46 +361,64 @@
     </div>
 
     <!-- Hidden container for Image Generation -->
+    <!-- Hidden container for Image Generation -->
     <div id="captureContainer" class="capture-container">
         <div class="capture-header">
-            <div class="capture-logo">LuCash $</div>
+            <div class="logo-box">LuCash $</div>
             <div class="capture-title">TABLA DE REMESAS</div>
         </div>
+
         <div class="tables-wrapper">
+            <!-- Colombia -> Venezuela -->
             <div class="rate-column">
                 <div class="column-header">
-                    <h3>🇨🇴 Colombia ⮕ Venezuela 🇻🇪</h3>
+                    <div class="country-info">
+                        <span class="flag">co</span> Colombia ⮕ Venezuela <span class="flag">ve</span>
+                    </div>
                     <div class="rate-display">Tasa del día: <span id="displayRateCopVes">0.00</span></div>
                 </div>
                 <table class="rate-table" id="tableCopVes">
                     <thead>
                         <tr>
-                            <th>Envías (COP)</th>
-                            <th>Recibes (VES)</th>
+                            <th>ENVÍAS (COP)</th>
+                            <th>RECIBES (VES)</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
                 </table>
-                <div class="rate-note">Después de $1.000.000<br>Tasa es: <span id="noteRateCopVes">0.00</span></div>
+                <div class="rate-note">
+                    Después de $1.000.000 <br>
+                    Tasa es: <span id="noteRateCopVes">0.00</span>
+                </div>
             </div>
+
+            <!-- Venezuela -> Colombia -->
             <div class="rate-column">
                 <div class="column-header">
-                    <h3>🇻🇪 Venezuela ⮕ Colombia 🇨🇴</h3>
+                    <div class="country-info">
+                        <span class="flag">ve</span> Venezuela ⮕ Colombia <span class="flag">co</span>
+                    </div>
                     <div class="rate-display">Tasa del día: <span id="displayRateVesCop">0.00</span></div>
                 </div>
                 <table class="rate-table" id="tableVesCop">
                     <thead>
                         <tr>
-                            <th>Envías (VES)</th>
-                            <th>Recibes (COP)</th>
+                            <th>ENVÍAS (VES)</th>
+                            <th>RECIBES (COP)</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
                 </table>
-                <div class="rate-note">Después de 5.000 Bs<br>Tasa es: <span id="noteRateVesCop">0.00</span></div>
+                <div class="rate-note">
+                    Después de 5.000 Bs <br>
+                    Tasa es: <span id="noteRateVesCop">0.00</span>
+                </div>
             </div>
         </div>
-        <div class="capture-footer">Generado por LuCash $ App</div>
+
+        <div class="capture-footer-text">
+            Generado por LuCash $ App
+        </div>
     </div>
 
     <!-- Evidence Viewer Modal -->

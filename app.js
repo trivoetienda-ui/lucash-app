@@ -400,13 +400,133 @@ document.addEventListener('DOMContentLoaded', () => {
     updateUI = async () => { await renderDashboard(); await renderTransactions(); await renderColabs(); };
     window.exportToExcel = async () => { const txs = await storage.getTransactions(); const ws = XLSX.utils.json_to_sheet(txs); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Data"); XLSX.writeFile(wb, "LuCash_Export.xlsx"); };
 
-    if (document.getElementById('inputBuy')) {
-        const calc = () => {
-            const b = parseFloat(document.getElementById('inputBuy').value), s = parseFloat(document.getElementById('inputSell').value), p = parseFloat(document.getElementById('inputProfit').value) / 100;
-            if (b && s) document.getElementById('resultTasa').value = ((b * (1 + p)) / s).toFixed(2);
+    if (document.getElementById('directionToggle')) {
+        let currentDirection = 'COP_VES';
+        const buttons = document.querySelectorAll('#directionToggle .toggle-btn');
+        const buyLabel = document.getElementById('buyLabel');
+        const sellLabel = document.getElementById('sellLabel');
+        const inputBuy = document.getElementById('inputBuy');
+        const inputSell = document.getElementById('inputSell');
+        const inputProfit = document.getElementById('inputProfit');
+        const resultTasa = document.getElementById('resultTasa');
+
+        const calculate = () => {
+            const b = parseFloat(inputBuy.value);
+            const s = parseFloat(inputSell.value);
+            const p = parseFloat(inputProfit.value) / 100;
+
+            if (b && s) {
+                let formula;
+                if (currentDirection === 'COP_VES') {
+                    // Rule 1: COP -> VES (Add profit to buy price)
+                    formula = (b * (1 + p)) / s;
+                    resultTasa.value = formula.toFixed(2);
+                } else {
+                    // Rule 2: VES -> COP (Subtract profit from final result)
+                    formula = (s / b) * (1 - p);
+                    resultTasa.value = formula.toFixed(2);
+                }
+            }
         };
-        ['inputBuy', 'inputSell', 'inputProfit'].forEach(id => document.getElementById(id).oninput = calc);
+
+        buttons.forEach(btn => {
+            btn.onclick = () => {
+                buttons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentDirection = btn.dataset.direction;
+
+                if (currentDirection === 'COP_VES') {
+                    buyLabel.textContent = 'Precio Compra (COP)';
+                    sellLabel.textContent = 'Precio Venta (VES)';
+                    inputBuy.placeholder = "COP por USDT";
+                    inputSell.placeholder = "VES por USDT";
+                } else {
+                    buyLabel.textContent = 'Precio Compra (VES)';
+                    sellLabel.textContent = 'Precio Venta (COP)';
+                    inputBuy.placeholder = "VES por USDT";
+                    inputSell.placeholder = "COP por USDT";
+                }
+                calculate();
+            };
+        });
+
+        [inputBuy, inputSell, inputProfit].forEach(id => id.oninput = calculate);
     }
     ['dashDateFrom', 'dashDateTo'].forEach(id => document.getElementById(id).onchange = renderDashboard);
+    window.generateImage = async () => {
+        const rateCopVes = parseFloat(document.getElementById('genRateCopVes').value);
+        const rateVesCop = parseFloat(document.getElementById('genRateVesCop').value);
+
+        if (!rateCopVes || !rateVesCop) {
+            alert("Por favor, ingresa ambas tasas.");
+            return;
+        }
+
+        const specialRateCopVes = rateCopVes - 1;
+        const specialRateVesCop = rateVesCop + 1;
+
+        document.getElementById('displayRateCopVes').textContent = rateCopVes.toFixed(2);
+        document.getElementById('displayRateVesCop').textContent = rateVesCop.toFixed(2);
+        document.getElementById('noteRateCopVes').textContent = specialRateCopVes.toFixed(2);
+        document.getElementById('noteRateVesCop').textContent = specialRateVesCop.toFixed(2);
+
+        // COP to VES Table Tiers
+        const copTiers = [25000, 40000, 50000, 100000, 200000, 500000, 1000000, 2000000];
+        const tbodyCopVes = document.querySelector('#tableCopVes tbody');
+        if (tbodyCopVes) {
+            tbodyCopVes.innerHTML = copTiers.map(amt => {
+                const currentTasa = amt >= 1000000 ? specialRateCopVes : rateCopVes;
+                const result = amt / currentTasa;
+                return `
+                <tr>
+                    <td>$ ${new Intl.NumberFormat('es-CO').format(amt)}</td>
+                    <td>${new Intl.NumberFormat('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 3 }).format(result)}</td>
+                </tr>
+            `}).join('');
+        }
+
+        // VES to COP Table Tiers
+        const vesTiers = [300, 400, 500, 1000, 2000, 5000, 10000];
+        const tbodyVesCop = document.querySelector('#tableVesCop tbody');
+        if (tbodyVesCop) {
+            tbodyVesCop.innerHTML = vesTiers.map(amt => {
+                const currentTasa = amt >= 5000 ? specialRateVesCop : rateVesCop;
+                const result = amt * currentTasa;
+                return `
+                <tr>
+                    <td>$ ${new Intl.NumberFormat('es-CO').format(amt)}</td>
+                    <td>${new Intl.NumberFormat('es-CO', { minimumFractionDigits: 2 }).format(result)}</td>
+                </tr>
+            `}).join('');
+        }
+
+        const btn = document.querySelector('#generatorSection .action-btn');
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Generando...";
+
+        try {
+            const container = document.getElementById('captureContainer');
+            await document.fonts.ready;
+
+            const canvas = await html2canvas(container, {
+                useCORS: true,
+                scale: 2,
+                backgroundColor: "#042421"
+            });
+
+            const link = document.createElement('a');
+            link.download = `LuCash_Tasas_${new Date().toISOString().split('T')[0]}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        } catch (err) {
+            console.error("Image generation error:", err);
+            alert("Error al generar imagen: " + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    };
+
     window.showSection('dashboard');
 });
