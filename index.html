@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#10b981">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -27,7 +27,7 @@
     <div id="authOverlay" class="auth-overlay">
         <div class="auth-card">
             <div class="auth-header">
-                <img src="icons/icon-192.png" alt="LuCash Logo" class="auth-logo">
+                <img src="./icons/icon-192.png" alt="LuCash Logo" class="auth-logo">
                 <h2>Bienvenido a LuCash $</h2>
                 <p id="authSubtitle">Inicia sesión para gestionar tus remesas</p>
             </div>
@@ -69,23 +69,37 @@
             </div>
         </div>
     </div>
-    <div class="container">
-        <header>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <h1 style="margin:0">LuCash $</h1>
-                <button class="nav-btn small" onclick="logout()"
-                    style="background: var(--error); color: white; margin:0">Cerrar Sesión</button>
-            </div>
-            <p class="subtitle">Gestión Profesional de Remesas</p>
-        </header>
-
-        <nav class="nav-menu" id="mainNav">
-            <button class="nav-btn active" onclick="showSection('dashboard')">🏠 Dashboard</button>
-            <button class="nav-btn" onclick="showSection('transactions')">💼 Op. Binance</button>
-            <button class="nav-btn" onclick="showSection('calculator')">🧮 Calc</button>
-            <button class="nav-btn" onclick="showSection('generator')">📷 Tabla</button>
-            <button class="nav-btn" onclick="showSection('collaborators')">👥 Colab</button>
+    <div id="menuOverlay" class="menu-overlay" onclick="toggleMenu()"></div>
+    <div id="sideMenu" class="side-menu">
+        <div class="side-menu-header">
+            <img src="./icons/icon-192.png" alt="Logo" style="width: 40px;">
+            <h3>Menu</h3>
+            <button class="close-menu" onclick="toggleMenu()">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <nav class="nav-menu-vertical" id="mainNav">
+            <button class="menu-item active" onclick="handleNav('dashboard')">🏠 Dashboard</button>
+            <button class="menu-item" onclick="handleNav('transactions')">💼 Op. Binance</button>
+            <button class="menu-item" onclick="handleNav('calculator')">🧮 Calculadora</button>
+            <button class="menu-item" onclick="handleNav('generator')">📷 Tablas Mensuales</button>
+            <button class="menu-item" onclick="handleNav('collaborators')">👥 Colaboradores</button>
         </nav>
+        <div class="side-menu-footer">
+            <button class="logout-btn" onclick="logout()">
+                <i data-lucide="log-out" style="width:16px;"></i> Cerrar Sesión
+            </button>
+        </div>
+    </div>
+
+    <div class="container">
+        <header class="main-header">
+            <button class="menu-toggle" onclick="toggleMenu()">
+                <i data-lucide="menu"></i>
+            </button>
+            <h1>LuCash $</h1>
+            <div class="desktop-hidden" style="width: 40px;"></div>
+        </header>
 
         <!-- DASHBOARD SECTION -->
         <section id="dashboardSection">

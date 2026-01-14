@@ -5,7 +5,7 @@
 
 // --- GLOBAL ACCESS ---
 // --- GLOBAL ACCESS ---
-let showSection, generateImage, openTransactionModal, closeModal, openColabModal, exportToExcel, toggleSelectAll, liquidateSelected, logout, togglePasswordVisibility;
+let showSection, generateImage, openTransactionModal, closeModal, openColabModal, exportToExcel, toggleSelectAll, liquidateSelected, logout, togglePasswordVisibility, toggleMenu, handleNav;
 
 // Supabase Configuration
 // Supabase Configuration
@@ -118,8 +118,9 @@ document.addEventListener('DOMContentLoaded', () => {
         lucide.createIcons();
     };
 
-    logout = async () => {
+    window.logout = async () => {
         await _client.auth.signOut();
+        window.location.reload(); // Force reload to clear all states
     };
 
     // --- STORAGE (SUPABASE) ---
@@ -131,20 +132,20 @@ document.addEventListener('DOMContentLoaded', () => {
         saveTransaction: async (tx) => {
             const { error } = await _client.from('transactions').upsert({ ...tx, user_id: currentUser.id });
             if (error) alert('Error: ' + error.message);
-            updateUI();
+            await updateUI();
         },
         deleteTransaction: async (id) => {
             if (!confirm('¿Seguro?')) return;
             await _client.from('transactions').delete().eq('id', id);
-            updateUI();
+            await updateUI();
         },
         toggleLiquidated: async (id, currentState) => {
             await _client.from('transactions').update({ liquidated: !currentState }).eq('id', id);
-            updateUI();
+            await updateUI();
         },
         bulkLiquidate: async (ids) => {
             await _client.from('transactions').update({ liquidated: true }).in('id', ids);
-            updateUI();
+            await updateUI();
         },
         getColabs: async () => {
             const { data } = await _client.from('collaborators').select('*').order('name');
@@ -153,12 +154,12 @@ document.addEventListener('DOMContentLoaded', () => {
         saveColab: async (colab) => {
             const { error } = await _client.from('collaborators').upsert({ ...colab, user_id: currentUser.id });
             if (error) alert('Error: ' + error.message);
-            updateUI();
+            await updateUI();
         },
         deleteColab: async (id) => {
             if (!confirm('¿Seguro?')) return;
             await _client.from('collaborators').delete().eq('id', id);
-            updateUI();
+            await updateUI();
         }
     };
 
@@ -171,17 +172,31 @@ document.addEventListener('DOMContentLoaded', () => {
         collaborators: document.getElementById('collaboratorsSection')
     };
 
-    showSection = async (name) => {
+    window.showSection = async (name) => {
         Object.keys(sections).forEach(s => sections[s].style.display = 'none');
         sections[name].style.display = 'block';
 
-        document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-        const activeBtn = Array.from(document.querySelectorAll('.nav-btn')).find(b => b.onclick.toString().includes(name));
+        // Update active class in menu
+        document.querySelectorAll('.menu-item').forEach(btn => btn.classList.remove('active'));
+        const activeBtn = Array.from(document.querySelectorAll('.menu-item')).find(b => b.getAttribute('onclick')?.includes(name));
         if (activeBtn) activeBtn.classList.add('active');
 
         if (name === 'dashboard') await renderDashboard();
         if (name === 'transactions') await renderTransactions();
         if (name === 'collaborators') await renderColabs();
+    };
+
+    window.toggleMenu = () => {
+        const menu = document.getElementById('sideMenu');
+        const overlay = document.getElementById('menuOverlay');
+        if (!menu || !overlay) return;
+        menu.classList.toggle('open');
+        overlay.classList.toggle('active');
+    };
+
+    window.handleNav = async (name) => {
+        window.toggleMenu(); // Close menu
+        await window.showSection(name);
     };
 
     // --- DASHBOARD & STATS ---
@@ -307,13 +322,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- TRANSACTION MANAGEMENT ---
     const txForm = document.getElementById('txForm');
 
-    openTransactionModal = (id = null) => {
+    openTransactionModal = async (id = null) => {
         txForm.reset();
         document.getElementById('txDate').valueAsDate = new Date();
 
         const colabSelect = document.getElementById('txColab');
         colabSelect.innerHTML = '<option value="">Ninguno</option>';
-        storage.getColabs().forEach(c => {
+        const colabs = await storage.getColabs();
+        colabs.forEach(c => {
             colabSelect.innerHTML += `<option value="${c.id}">${c.name}</option>`;
         });
         document.getElementById('txEvidence').value = '';
