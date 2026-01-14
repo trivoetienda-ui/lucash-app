@@ -247,57 +247,54 @@ document.addEventListener('DOMContentLoaded', () => {
             const btn = txForm.querySelector('button[type="submit"]');
             btn.disabled = true;
             try {
-                const raw = {
-                    date: document.getElementById('txDate').value,
-                    client: document.getElementById('txClient').value,
-                    type: document.getElementById('txType').value,
-                    rate: parseFloat(document.getElementById('txRate').value),
-                    amount_rec: parseFloat(document.getElementById('txAmountRec').value),
-                    usdt_bought: parseFloat(document.getElementById('txUsdtBought').value),
-                    usdt_sold: parseFloat(document.getElementById('txUsdtSold').value),
-                    binance_fee_buy: parseFloat(document.getElementById('txBinanceFeeBuy').value) || 0,
-                    binance_fee_sell: parseFloat(document.getElementById('txBinanceFeeSell').value) || 0,
-                    colab_id: document.getElementById('txColab').value || null,
-                    liquidated: false
-                };
-
+                const colabId = document.getElementById('txColab').value || null;
+                let evidence = [];
                 const files = document.getElementById('txEvidence').files;
                 if (files.length > 0) {
-                    raw.evidence = [];
                     for (let f of files) {
                         const b64 = await new Promise(r => { const rd = new FileReader(); rd.onload = e => r(e.target.result); rd.readAsDataURL(f); });
-                        raw.evidence.push(b64);
+                        evidence.push(b64);
                     }
                 }
 
-                // Calculate using logic engine
-                const calcResult = FinancialLogic.calculateTransaction({
-                    tipo_cambio: raw.type,
-                    tasa_cambio: raw.rate,
-                    monto_recibo: raw.amount_rec,
-                    usdt_comprados: raw.usdt_bought,
-                    usdt_vendidos: raw.usdt_sold,
-                    binance_fee_buy: raw.binance_fee_buy,
-                    binance_fee_sell: raw.binance_fee_sell,
-                    ganancia_compartida: !!raw.colab_id
-                });
-
-                // Map only database-valid fields
-                const dbTx = {
-                    ...raw,
-                    monto_entrego: calcResult.monto_entrego,
-                    precio_compra_usdt: calcResult.precio_compra_usdt,
-                    comision_banco: calcResult.comision_banco,
-                    ganancia_bruta: calcResult.ganancia_bruta,
-                    ganancia_neta: calcResult.ganancia_neta,
-                    ganancia_usuario: calcResult.ganancia_usuario,
-                    ganancia_colaborador: calcResult.ganancia_colaborador
+                const calcInput = {
+                    tipo_cambio: document.getElementById('txType').value,
+                    tasa_cambio: parseFloat(document.getElementById('txRate').value),
+                    monto_recibo: parseFloat(document.getElementById('txAmountRec').value),
+                    usdt_comprados: parseFloat(document.getElementById('txUsdtBought').value),
+                    usdt_vendidos: parseFloat(document.getElementById('txUsdtSold').value),
+                    binance_fee_buy: parseFloat(document.getElementById('txBinanceFeeBuy').value) || 0,
+                    binance_fee_sell: parseFloat(document.getElementById('txBinanceFeeSell').value) || 0,
+                    ganancia_compartida: !!colabId
                 };
 
-                await storage.saveTransaction(dbTx);
+                const results = FinancialLogic.calculateTransaction(calcInput);
+
+                const finalDbTx = {
+                    date: document.getElementById('txDate').value,
+                    client: document.getElementById('txClient').value,
+                    colab_id: colabId,
+                    type: calcInput.tipo_cambio,
+                    rate: calcInput.tasa_cambio,
+                    amount_rec: calcInput.monto_recibo,
+                    monto_entrego: results.monto_entrego,
+                    usdt_bought: calcInput.usdt_comprados,
+                    usdt_sold: calcInput.usdt_vendidos,
+                    binance_fee_buy: calcInput.binance_fee_buy,
+                    binance_fee_sell: calcInput.binance_fee_sell,
+                    precio_compra_usdt: results.precio_compra_usdt,
+                    comision_banco: results.comision_banco,
+                    ganancia_bruta: results.ganancia_bruta,
+                    ganancia_neta: results.ganancia_neta,
+                    ganancia_usuario: results.ganancia_usuario,
+                    ganancia_colaborador: results.ganancia_colaborador,
+                    liquidated: false,
+                    evidence: evidence
+                };
+
+                await storage.saveTransaction(finalDbTx);
                 window.closeModal('txModal');
             } catch (err) {
-                console.error("Save error:", err);
                 alert("Error al guardar: " + err.message);
             } finally {
                 btn.disabled = false;
@@ -333,8 +330,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${new Intl.NumberFormat('es-CO').format(tx.amount_rec)}</td>
                 <td>${new Intl.NumberFormat('es-CO').format(tx.monto_entrego)}</td>
                 <td>${Number(tx.usdt_bought).toFixed(2)}</td>
+                <td>${Number(tx.usdt_sold).toFixed(2)}</td>
                 <td>${Number(tx.precio_compra_usdt).toFixed(2)}</td>
+                <td>${Number(tx.binance_fee_buy).toFixed(2)}</td>
+                <td>${Number(tx.binance_fee_sell).toFixed(2)}</td>
+                <td>${new Intl.NumberFormat('es-CO').format(tx.comision_banco)}</td>
+                <td>${Number(tx.ganancia_bruta).toFixed(2)}</td>
                 <td class="text-primary" style="font-weight:700">${Number(tx.ganancia_usuario).toFixed(2)}</td>
+                <td>${Number(tx.ganancia_colaborador).toFixed(2)}</td>
                 <td><span class="status-tag ${tx.liquidated ? 'status-paid' : 'status-pending'}">${tx.liquidated ? 'Liq.' : 'Pte.'}</span></td>
                 <td style="display:flex; gap:5px;">
                     ${(tx.evidence && tx.evidence.length > 0) ? `<button class="nav-btn small" onclick="viewEvidence('${tx.id}')">📷</button>` : ''}
