@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LuCash $ - Gestión de Remesas</title>
+    <link rel="stylesheet" href="./style.css?v=11">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#10b981">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="./icon-192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="auth-hidden">
+    <!-- LOGIN OVERLAY -->
+    <div id="authOverlay" class="auth-overlay">
+        <div class="auth-card">
+            <div class="auth-header">
+                <img src="./LuCash.png" alt="LuCash Logo" class="auth-logo">
+                <h2>Bienvenido a LuCash $</h2>
+                <p id="authSubtitle">Inicia sesión para gestionar tus remesas</p>
+            </div>
+            <form id="authForm" class="auth-form">
+                <div class="input-group">
+                    <label>Correo Electrónico</label>
+                    <input type="email" id="authEmail" placeholder="tu@email.com" required>
+                </div>
+                <div class="input-group">
+                    <label style="display: flex; align-items: center; gap: 5px;">
+                        Contraseña
+                        <div class="info-icon" id="pwRequirements">
+                            <i data-lucide="info" style="width:14px; height:14px;"></i>
+                            <span class="tooltip">Min. 8 caracteres, Mayúscula, Minúscula, Número y Símbolo</span>
+                        </div>
+                    </label>
+                    <div class="password-wrapper">
+                        <input type="password" id="authPassword" placeholder="••••••••" required>
+                        <button type="button" class="toggle-password"
+                            onclick="togglePasswordVisibility('authPassword')">
+                            <i data-lucide="eye" class="eye-icon"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="input-group" id="confirmPasswordGroup" style="display: none;">
+                    <label>Confirmar Contraseña</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="authConfirmPassword" placeholder="••••••••">
+                        <button type="button" class="toggle-password"
+                            onclick="togglePasswordVisibility('authConfirmPassword')">
+                            <i data-lucide="eye" class="eye-icon"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" id="authSubmitBtn" class="action-btn">Entrar</button>
+            </form>
+            <div class="auth-footer">
+                <p id="toggleAuthText">¿No tienes cuenta? <a href="#" id="toggleAuthMode">Regístrate gratis</a></p>
+            </div>
+        </div>
+    </div>
+    <div id="menuOverlay" class="menu-overlay" onclick="toggleMenu()"></div>
+    <div id="sideMenu" class="side-menu">
+        <div class="side-menu-header">
+            <img src="./LuCash.png" alt="Logo" style="width: 40px;">
+            <h3>Menu</h3>
+            <button class="close-menu" onclick="toggleMenu()">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <nav class="nav-menu-vertical" id="mainNav">
+            <button class="menu-item active" onclick="handleNav('dashboard')"><i data-lucide="layout-dashboard"></i>
+                Dashboard</button>
+            <button class="menu-item" onclick="handleNav('transactions')"><i data-lucide="arrow-left-right"></i>
+                Transacciones</button>
+            <button class="menu-item" onclick="handleNav('settlements')"><i data-lucide="file-text"></i> Hist.
+                Liquidaciones</button>
+            <button class="menu-item" onclick="handleNav('calculator')"><i data-lucide="calculator"></i>
+                Calculadora</button>
+            <button class="menu-item" onclick="handleNav('generator')"><i data-lucide="image"></i> Tasa del día</button>
+            <button class="menu-item" onclick="handleNav('collaborators')"><i data-lucide="users"></i>
+                Colaboradores</button>
+        </nav>
+        <div class="side-menu-footer">
+            <button class="logout-btn" onclick="logout()">
+                <i data-lucide="log-out" style="width:16px;"></i> Cerrar Sesión
+            </button>
+        </div>
+    </div>
+
+    <div class="container">
+        <header class="main-header">
+            <button class="menu-toggle" onclick="toggleMenu()">
+                <i data-lucide="menu"></i>
+            </button>
+            <h1>LuCash $</h1>
+            <div class="desktop-hidden" style="width: 40px;"></div>
+        </header>
+
+        <!-- DASHBOARD SECTION -->
+        <section id="dashboardSection">
+            <div class="filters-bar"
+                style="margin-bottom: 2rem; display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+                <div class="filter-group" style="flex: 1; min-width: 200px; max-width: 300px;">
+                    <label>Filtrar por fechas:</label>
+                    <div style="position: relative;">
+                        <button id="dashDatePresetBtn" class="action-btn"
+                            style="width: 100%; display: flex; gap: 8px; justify-content: center; align-items: center; background: var(--glass); border: 1px solid var(--border); color: var(--text-light); border-radius: 10px; padding: 12px 16px;">
+                            <i data-lucide="filter"></i> <span>Este mes</span> <i data-lucide="chevron-down"
+                                style="margin-left:auto;"></i>
+                        </button>
+                        <select id="dashDatePreset" style="display: none;">
+                            <option value="today">Hoy</option>
+                            <option value="yesterday">Ayer</option>
+                            <option value="7days">Últimos 7 días</option>
+                            <option value="15days">Últimos 15 días</option>
+                            <option value="30days">Últimos 30 días</option>
+                            <option value="thisMonth" selected>Este mes</option>
+                            <option value="lastMonth">Mes anterior</option>
+                            <option value="max">Máximo (Todo)</option>
+                            <option value="">Personalizado</option>
+                        </select>
+                        <div id="dashDateDropdown" class="custom-dropdown-menu">
+                            <div class="dropdown-item" data-value="today">Hoy</div>
+                            <div class="dropdown-item" data-value="yesterday">Ayer</div>
+                            <div class="dropdown-item" data-value="7days">Últimos 7 días</div>
+                            <div class="dropdown-item" data-value="15days">Últimos 15 días</div>
+                            <div class="dropdown-item" data-value="30days">Últimos 30 días</div>
+                            <div class="dropdown-item active" data-value="thisMonth">Este mes</div>
+                            <div class="dropdown-item" data-value="lastMonth">Mes anterior</div>
+                            <div class="dropdown-item" data-value="max">Máximo (Todo)</div>
+                            <div class="dropdown-item" data-value=""
+                                style="font-weight: 800; border-top: 1px solid var(--border); margin-top: 4px; color: var(--primary);">
+                                Personalizado</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="stat-card">
+                    <span class="stat-label">Ganancia Periodo</span>
+                    <span class="stat-value" id="statPeriodProfit">0.00 USDT</span>
+                </div>
+                <div class="stat-card highlight">
+                    <span class="stat-label">Mi Ganancia</span>
+                    <span class="stat-value" id="statUserGainMonth">0.00 USDT</span>
+                </div>
+                <div class="stat-card urgent">
+                    <span class="stat-label">Total por Liquidar</span>
+                    <span class="stat-value" id="statTotalPending">0.00 USDT</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Volumen Total COP</span>
+                    <span class="stat-value" id="statVolCop">$ 0</span>
+                </div>
+            </div>
+
+            <div id="chartCard" class="card" style="margin-bottom: 2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h3>Ganancia por Período</h3>
+                    <button id="expandChartBtn" onclick="toggleExpandChart()"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white;">
+                        <i data-lucide="maximize-2" style="width: 16px; height: 16px;"></i>
+                    </button>
+                </div>
+                <div class="chart-scroller">
+                    <div class="chart-container" style="min-width: 800px;">
+                        <canvas id="profitChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Resumen por Colaborador</h3>
+                <div class="table-container">
+                    <table id="colabSummaryTable">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Op.</th>
+                                <th>Pte. Liquidar</th>
+                                <th>Total Ganado</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TRANSACTIONS SECTION -->
+        <section id="transactionsSection" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Transacciones</h3>
+                    <button class="action-btn small" onclick="openTransactionModal()"><i data-lucide="plus"
+                            style="width:14px; height:14px; vertical-align:middle; margin-right:4px;"></i>
+                        Nueva</button>
+                </div>
+
+                <div class="card-header" style="flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <button class="secondary-btn small"
+                            onclick="document.getElementById('filterModal').style.display='flex'">
+                            <i data-lucide="filter"
+                                style="width:16px; height:16px; margin-right:4px; vertical-align:middle;"></i> Filtros
+                        </button>
+                        <div class="bulk-actions" style="display: flex; gap: 10px;">
+                            <button class="action-btn small" onclick="liquidateSelected()"
+                                style="background: var(--success); width: auto;">✅ Liquidar Seleccionados</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table id="transactionsTable">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll()"></th>
+                                <th>Fecha</th>
+                                <th>Cliente</th>
+                                <th>Colab.</th>
+                                <th>Tipo</th>
+                                <th>Tasa</th>
+                                <th>Recibido</th>
+                                <th>Entregar</th>
+                                <th>USDT Comp.</th>
+                                <th>USDT Vend.</th>
+                                <th>P. Compra USDT</th>
+                                <th>C. Bin Buy</th>
+                                <th>C. Bin Sell</th>
+                                <th>Com. Banco</th>
+                                <th>G. Bruta</th>
+                                <th>Mi Ganancia</th>
+                                <th>G. Colab</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <button class="secondary-btn" onclick="exportToExcel()"><i data-lucide="download"
+                        style="width:16px; height:16px; margin-right:8px; vertical-align:middle;"></i> Exportar
+                    Excel</button>
+            </div>
+        </section>
+
+        <!-- CALCULATOR SECTION -->
+        <section id="calculatorSection" style="display: none;">
+            <div class="calculator-form card">
+                <div class="toggle-container" id="directionToggle" style="margin: 0 auto 2.5rem auto;">
+                    <button class="toggle-btn active" data-direction="COP_VES">COP → VES</button>
+                    <button class="toggle-btn" data-direction="VES_COP">VES → COP</button>
+                </div>
+                <div class="input-group">
+                    <label id="buyLabel">Precio Compra (COP)</label>
+                    <input type="number" id="inputBuy" placeholder="0.00" step="any">
+                </div>
+                <div class="input-group">
+                    <label id="sellLabel">Precio Venta (VES)</label>
+                    <input type="number" id="inputSell" placeholder="0.00" step="any">
+                </div>
+                <div class="input-group">
+                    <label>Ganancia Deseada (%)</label>
+                    <input type="number" id="inputProfit" placeholder="10" value="10" step="0.1">
+                </div>
+                <div class="result-container">
+                    <label>Tasa LuCash $</label>
+                    <input type="text" id="resultTasa" class="readonly" value="0.00" readonly>
+                </div>
+                <button id="autoFillBinanceBtn" class="action-btn"
+                    style="margin-top: 15px; background: #fcd535; color: #1e2026; padding: 12px; font-weight: 600; justify-content: center;">
+                    <i data-lucide="zap" style="width:18px; height:18px; margin-right:8px; vertical-align:middle;"></i>
+                    Calcular Automáticamente
+                </button>
+            </div>
+        </section>
+
+        <!-- GENERATOR SECTION -->
+        <section id="generatorSection" style="display: none;">
+            <div class="card">
+                <div class="input-group">
+                    <label>Tasa Base COP → VES</label>
+                    <input type="number" id="genRateCopVes" placeholder="Ej: 8.80">
+                </div>
+                <div class="input-group">
+                    <label>Tasa Base VES → COP</label>
+                    <input type="number" id="genRateVesCop" placeholder="Ej: 3.50">
+                </div>
+                <button class="action-btn" onclick="generateImage()">✨ Descargar Imagen</button>
+            </div>
+        </section>
+
+        <!-- SETTLEMENTS HISTORY SECTION -->
+        <section id="settlementsSection" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Historial de Liquidaciones</h3>
+                </div>
+                <div class="table-container">
+                    <table id="settlementsTable">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Colaborador</th>
+                                <th>Total Liquidado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- COLLABORATORS SECTION -->
+        <section id="collaboratorsSection" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Gestión de Colaboradores</h3>
+                    <button class="action-btn small" onclick="openColabModal()"><i data-lucide="user-plus"
+                            style="width:14px; height:14px; vertical-align:middle; margin-right:4px;"></i>
+                        Añadir</button>
+                </div>
+                <div class="table-container">
+                    <table id="colabTable">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Op. Totales</th>
+                                <th>Ganancia Acumulada</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- MODAL: TRANSACTION FORM -->
+    <div id="txModal" class="modal">
+        <div class="modal-content card">
+            <h3 id="txModalTitle">Nueva Transacción</h3>
+            <form id="txForm">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Fecha</label>
+                        <input type="date" id="txDate" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Cliente</label>
+                        <input type="text" id="txClient">
+                    </div>
+                    <div class="input-group">
+                        <label>Tipo</label>
+                        <select id="txType">
+                            <option value="COP_VES">COP → VES</option>
+                            <option value="VES_COP">VES → COP</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Tasa Cambio</label>
+                        <input type="number" id="txRate" step="any" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Monto Recibido</label>
+                        <input type="number" id="txAmountRec" step="any" required>
+                    </div>
+                    <div class="input-group">
+                        <label>USDT Comprados</label>
+                        <input type="number" id="txUsdtBought" step="any" required>
+                    </div>
+                    <div class="input-group">
+                        <label>USDT Vendidos</label>
+                        <input type="number" id="txUsdtSold" step="any" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Com. Binance Compra</label>
+                        <input type="number" id="txBinanceFeeBuy" step="any" value="0.10" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Com. Binance Venta</label>
+                        <input type="number" id="txBinanceFeeSell" step="any" value="0" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Colaborador</label>
+                        <select id="txColab">
+                            <option value="">Ninguno</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Evidencia (Screenshots)</label>
+                        <input type="file" id="txEvidence" accept="image/*" class="file-input" multiple>
+                    </div>
+
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="secondary-btn" onclick="closeModal('txModal')">Cancelar</button>
+                    <button type="submit" class="action-btn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Hidden container for Image Generation -->
+    <!-- Hidden container for Image Generation -->
+    <div id="captureContainer" class="capture-container">
+        <div class="capture-header">
+            <div class="logo-box">
+                <img src="./LuCash.png" alt="LuCash Logo" class="capture-logo-img">
+            </div>
+            <div class="capture-title">TABLA DE REMESAS</div>
+        </div>
+
+        <div class="tables-wrapper">
+            <!-- Colombia -> Venezuela -->
+            <div class="rate-column">
+                <div class="column-header">
+                    <div class="country-info">
+                        <span class="flag">co</span> Colombia ⮕ Venezuela <span class="flag">ve</span>
+                    </div>
+                    <div class="rate-display">Tasa del día: <span id="displayRateCopVes">0.00</span></div>
+                </div>
+                <table class="rate-table" id="tableCopVes">
+                    <thead>
+                        <tr>
+                            <th>ENVÍAS (COP)</th>
+                            <th>RECIBES (VES)</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <div class="rate-note" id="noteRateCopVes">
+                    La tasa puede variar durante el día
+                </div>
+            </div>
+
+            <!-- Venezuela -> Colombia -->
+            <div class="rate-column">
+                <div class="column-header">
+                    <div class="country-info">
+                        <span class="flag">ve</span> Venezuela ⮕ Colombia <span class="flag">co</span>
+                    </div>
+                    <div class="rate-display">Tasa del día: <span id="displayRateVesCop">0.00</span></div>
+                </div>
+                <table class="rate-table" id="tableVesCop">
+                    <thead>
+                        <tr>
+                            <th>ENVÍAS (VES)</th>
+                            <th>RECIBES (COP)</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <div class="rate-note">
+                    Después de 20.000 Bs <br>
+                    Tasa es: <span id="noteRateVesCop">0.00</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="capture-footer-text">
+            Generado por LuCash $ App
+        </div>
+    </div>
+
+    <!-- Evidence Viewer Modal -->
+    <div id="viewerModal" class="modal">
+        <div class="modal-content" style="max-width: 800px; text-align: center;">
+            <div id="evidenceDisplay"></div>
+            <div class="modal-footer" style="justify-content: center;">
+                <button type="button" class="secondary-btn" onclick="closeModal('viewerModal')">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: FILTERS -->
+    <div id="filterModal" class="modal">
+        <div class="modal-content card" style="max-width: 400px;">
+            <h3>Filtros de Búsqueda</h3>
+            <div class="form-grid" style="grid-template-columns: 1fr;">
+                <div class="input-group">
+                    <label>Desde</label>
+                    <input type="date" id="filterDateFrom">
+                </div>
+                <div class="input-group">
+                    <label>Hasta</label>
+                    <input type="date" id="filterDateTo">
+                </div>
+                <div class="input-group">
+                    <label>Colaborador</label>
+                    <select id="filterColab">
+                        <option value="">Todo</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Tipo de Cambio</label>
+                    <select id="filterType">
+                        <option value="">Todo</option>
+                        <option value="COP_VES">COP → VES</option>
+                        <option value="VES_COP">VES → COP</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Estado</label>
+                    <select id="filterStatus">
+                        <option value="">Todo</option>
+                        <option value="pending">Solo Pendientes</option>
+                        <option value="liquidated">Solo Liquidadas</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer" style="flex-direction: column;">
+                <button class="action-btn" onclick="window.applyFilters()">Aplicar Filtros</button>
+                <button class="secondary-btn" onclick="window.resetFilters()">Limpiar Todo</button>
+                <button class="secondary-btn" onclick="closeModal('filterModal')">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settlement Receipt Template (Hidden) -->
+    <div id="receiptContainer" class="receipt-container">
+        <div class="receipt-header">
+            <img src="./LuCash.png" alt="LuCash Logo" class="receipt-logo">
+            <div class="receipt-title">COMPROBANTE DE LIQUIDACIÓN</div>
+        </div>
+        <div class="receipt-body">
+            <div class="receipt-info">
+                <p><strong>Colaborador:</strong> <span id="receiptColabName"></span></p>
+                <p><strong>Fecha Pago:</strong> <span id="receiptDate"></span></p>
+            </div>
+            <table class="receipt-table">
+                <thead>
+                    <tr>
+                        <th>FECHA</th>
+                        <th>TIPO</th>
+                        <th>TASA</th>
+                        <th>RECIBIDO</th>
+                        <th>ENTREGAR</th>
+                        <th>USDT COMP</th>
+                        <th>USDT VEND</th>
+                        <th>COM. BIN.</th>
+                        <th>GANANCIA</th>
+                    </tr>
+                </thead>
+                <tbody id="receiptTableBody"></tbody>
+            </table>
+            <div class="receipt-total">
+                <span>TOTAL LIQUIDADO:</span>
+                <span id="receiptTotalAmount">0.00 USDT</span>
+            </div>
+        </div>
+        <div class="receipt-footer">
+            <p>¡Gracias por tu colaboración!</p>
+            <p>LuCash $ - Gestión de Remesas</p>
+        </div>
+    </div>
+
+    <!-- MODAL: CUSTOM DASHBOARD DATES -->
+    <div id="dashDateModal" class="modal">
+        <div class="modal-content card" style="max-width: 400px; padding: 2rem;">
+            <h3 style="margin-bottom: 1.5rem; text-align: center;">Rango Personalizado</h3>
+            <div class="form-grid" style="grid-template-columns: 1fr; gap: 1.5rem;">
+                <div class="input-group">
+                    <label>Desde</label>
+                    <input type="date" id="dashDateFrom">
+                </div>
+                <div class="input-group">
+                    <label>Hasta</label>
+                    <input type="date" id="dashDateTo">
+                </div>
+            </div>
+            <div class="modal-footer" style="flex-direction: column; gap: 10px; margin-top: 2rem;">
+                <button class="action-btn" onclick="window.applyDashCustomDates()">Aplicar Período</button>
+                <button class="secondary-btn" onclick="closeModal('dashDateModal')">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="./financial-logic.js?v=11"></script>
+    <script src="./services/database-service.js?v=11"></script>
+    <script src="./services/auth-service.js?v=11"></script>
+    <script src="./ui/render-service.js?v=11"></script>
+    <script src="./app.js?v=11"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW registrado', reg))
+                    .catch(err => console.log('Error SW', err));
+            });
+        }
+    </script>
+</body>
+
+</html>
