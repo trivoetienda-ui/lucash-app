@@ -467,13 +467,31 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
             if (transAmount) binancePayload.transAmount = transAmount;
 
+            // 1. INTENTO PRIMARIO: Usar el Proxy Privado de Vercel (Rápido y Seguro)
+            try {
+                const vercelApiUrl = '/api/binance-proxy';
+                const response = await fetch(vercelApiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(binancePayload)
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result && result.data && result.data.length > 0 && result.data[0].adv && result.data[0].adv.price) {
+                        return parseFloat(result.data[0].adv.price);
+                    }
+                }
+            } catch (e) {
+                console.warn("Vercel Proxy no disponible, intentando fallbacks públicos...");
+            }
+
+            // 2. FALLBACK: Proxies Públicos (Para GitHub Pages o si falla Vercel)
             const binanceUrl = `https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search?t=${Date.now()}`;
-            
-            // List of proxies to try
             const proxies = [
                 (url) => 'https://corsproxy.io/?' + encodeURIComponent(url),
                 (url) => 'https://api.cors.lol/?url=' + encodeURIComponent(url),
-                (url) => 'https://proxy.cors.sh/' + url // Note: sometimes requires a key, but good as fallback
+                (url) => 'https://proxy.cors.sh/' + url
             ];
 
             let lastError = null;
@@ -484,7 +502,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         method: 'POST',
                         headers: { 
                             'Content-Type': 'application/json',
-                            'x-cors-gratis': 'true' // Some proxies use this
+                            'x-cors-gratis': 'true' 
                         },
                         body: JSON.stringify(binancePayload)
                     });
@@ -501,7 +519,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
             
-            throw lastError || new Error("No se pudo obtener respuesta de ningún proxy.");
+            throw lastError || new Error("No se pudo obtener respuesta de ningún método.");
         }
 
         const autoFillBtn = document.getElementById('autoFillBinanceBtn');
