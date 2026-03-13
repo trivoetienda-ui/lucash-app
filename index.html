@@ -15,11 +15,17 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- External Libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+    <!-- Project Services and App Logic -->
+    <script src="./services/auth-service.js" defer></script>
+    <script src="./services/database-service.js" defer></script>
+    <script src="./ui/render-service.js" defer></script>
+    <script src="./financial-logic.js" defer></script>
+    <script src="./app.js" defer></script>
 </head>
 
 <body class="auth-hidden">
@@ -592,12 +598,6 @@
             </div>
         </div>
     </div>
-
-    <script src="./financial-logic.js?v=11"></script>
-    <script src="./services/database-service.js?v=11"></script>
-    <script src="./services/auth-service.js?v=11"></script>
-    <script src="./ui/render-service.js?v=11"></script>
-    <script src="./app.js?v=11"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

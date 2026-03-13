@@ -65,7 +65,6 @@ window.toggleActionMenu = (btn) => {
     document.querySelectorAll('.menu-dropdown').forEach(m => m.classList.remove('active'));
     if (!isActive) {
         menu.classList.add('active');
-        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 };
 
@@ -134,15 +133,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Listen for auth changes and handle initial session
     auth.onAuthStateChange((_event, session) => {
         if (_event === 'SIGNED_IN' || _event === 'TOKEN_REFRESHED' || _event === 'INITIAL_SESSION') {
-            updateAuthUI(session?.user ?? null);
+            if (session?.user) {
+                updateAuthUI(session.user);
+            }
         } else if (_event === 'SIGNED_OUT') {
             updateAuthUI(null);
         }
     });
 
-    // Fallback initial check
+    // Fallback initial check - Ensure session is caught even if event fires early
     const { data: { session } } = await _client.auth.getSession();
-    if (session) updateAuthUI(session.user);
+    if (session?.user && !currentUser) {
+        updateAuthUI(session.user);
+    }
 
     // Auth Form
     const authForm = document.getElementById('authForm');

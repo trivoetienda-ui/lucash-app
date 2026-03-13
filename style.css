@@ -78,7 +78,9 @@ body {
         /* Padding ultra-reducido */
         border-radius: 0;
         border: none;
-        background: transparent;
+        background: var(--bg-dark); /* Solid background for mobile */
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
         box-shadow: none;
     }
 }
