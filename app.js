@@ -107,6 +107,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (user) {
             document.body.classList.remove('auth-hidden');
             document.body.classList.add('authenticated');
+            // updateAppUI is now hoisted as a function declaration
             await updateAppUI();
         } else {
             document.body.classList.add('auth-hidden');
@@ -189,7 +190,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // --- APP UI ENGINE ---
-    const updateAppUI = async () => {
+    async function updateAppUI() {
         if (!currentUser || isUpdating) return;
         isUpdating = true;
 
@@ -239,7 +240,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } finally {
             isUpdating = false;
         }
-    };
+    }
 
     const sections = {
         dashboard: document.getElementById('dashboardSection'),
@@ -453,48 +454,55 @@ document.addEventListener('DOMContentLoaded', async () => {
         ['inputBuy', 'inputSell', 'inputProfit'].forEach(id => document.getElementById(id).oninput = calc);
 
         // --- BINANCE AUTOFILL ---
-        const fetchBinanceP2P = async (fiat, tradeType, transAmount, payTypes) => {
-            try {
-                const data = {
-                    fiat: fiat,
-                    page: 1,
-                    rows: 10,
-                    tradeType: tradeType,
-                    asset: 'USDT',
-                    countries: [],
-                    payTypes: payTypes,
-                    publisherType: 'merchant' // Comerciantes verificados
-                };
-                if (transAmount) data.transAmount = transAmount;
+        async function fetchBinanceP2P(fiat, tradeType, transAmount, payTypes) {
+            const binancePayload = {
+                fiat: fiat,
+                page: 1,
+                rows: 10,
+                tradeType: tradeType,
+                asset: 'USDT',
+                countries: [],
+                payTypes: payTypes,
+                publisherType: 'merchant'
+            };
+            if (transAmount) binancePayload.transAmount = transAmount;
 
-                // Utilizamos corsproxy.io. Añadimos un timestamp para evitar que el proxy o el navegador devuelvan una respuesta cacheada (vieja).
-                const timestamp = Date.now();
-                const binanceUrl = `https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search?t=${timestamp}`;
-                const url = 'https://corsproxy.io/?' + encodeURIComponent(binanceUrl);
+            const binanceUrl = `https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search?t=${Date.now()}`;
+            
+            // List of proxies to try
+            const proxies = [
+                (url) => 'https://corsproxy.io/?' + encodeURIComponent(url),
+                (url) => 'https://api.cors.lol/?url=' + encodeURIComponent(url),
+                (url) => 'https://proxy.cors.sh/' + url // Note: sometimes requires a key, but good as fallback
+            ];
 
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Cache-Control': 'no-cache',
-                        'Pragma': 'no-cache'
-                    },
-                    cache: 'no-cache', // Forzar al navegador a no usar caché
-                    body: JSON.stringify(data)
-                });
+            let lastError = null;
+            for (const getProxyUrl of proxies) {
+                try {
+                    const url = getProxyUrl(binanceUrl);
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'x-cors-gratis': 'true' // Some proxies use this
+                        },
+                        body: JSON.stringify(binancePayload)
+                    });
 
-                if (!response.ok) throw new Error('CORS o Servidor: HTTP ' + response.status);
-                const result = await response.json();
+                    if (!response.ok) continue;
 
-                if (result && result.data && result.data.length > 0 && result.data[0].adv && result.data[0].adv.price) {
-                    return parseFloat(result.data[0].adv.price);
+                    const result = await response.json();
+                    if (result && result.data && result.data.length > 0 && result.data[0].adv && result.data[0].adv.price) {
+                        return parseFloat(result.data[0].adv.price);
+                    }
+                } catch (error) {
+                    lastError = error;
+                    continue;
                 }
-                return null;
-            } catch (error) {
-                console.error("Error Binance API:", error);
-                throw error;
             }
-        };
+            
+            throw lastError || new Error("No se pudo obtener respuesta de ningún proxy.");
+        }
 
         const autoFillBtn = document.getElementById('autoFillBinanceBtn');
         if (autoFillBtn) {
